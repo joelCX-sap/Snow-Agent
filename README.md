@@ -80,10 +80,12 @@ Crear y completar archivo `.env` (ejemplo de variables usadas por el código):
 - HANA_USER=...
 - HANA_PASSWORD=...
 - HANA_ENCRYPT=True
-
-Notas:
-- Para LLM y embeddings reales vía SAP Gen AI Hub, configurar las credenciales requeridas por el SDK `gen_ai_hub` (variables y bindings según su entorno). Si no están disponibles, el sistema usa fallback: embeddings determinísticos y respuesta de contexto sin LLM.
-
+- AICORE_AUTH_URL=""
+- AICORE_CLIENT_ID=""
+- AICORE_CLIENT_SECRET=""
+- AICORE_BASE_URL=""
+- AICORE_RESOURCE_GROUP=""
+ 
 ### 2) Frontend
 
 ```bash
