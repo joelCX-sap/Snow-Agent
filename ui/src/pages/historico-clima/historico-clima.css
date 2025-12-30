@@ -1,0 +1,288 @@
+.historico-clima-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--sapTextColor);
+  margin: 0 0 0.5rem 0;
+}
+
+.page-description {
+  font-size: 1rem;
+  color: var(--sapContent_LabelColor);
+  margin: 0;
+}
+
+.historico-form-container {
+  background: var(--sapGroup_ContentBackground);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--sapContent_Shadow0);
+}
+
+.historico-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--sapContent_LabelColor);
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+  background: var(--sapGroup_ContentBackground);
+  border-radius: 0.5rem;
+  box-shadow: var(--sapContent_Shadow0);
+}
+
+.resultados-container {
+  background: var(--sapGroup_ContentBackground);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: var(--sapContent_Shadow0);
+}
+
+.resultados-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.resultados-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--sapTextColor);
+  margin: 0;
+}
+
+.estadisticas {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.estadistica-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.estadistica-label {
+  font-size: 0.75rem;
+  color: var(--sapContent_LabelColor);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.estadistica-valor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--sapHighlightColor);
+}
+
+.tabla-container {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+/* Tabla HTML estándar (reemplazo visual del ui5-table) */
+.tabla-historicos {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--sapList_Background);
+  border: 1px solid var(--sapList_BorderColor);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.tabla-historicos thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--sapList_HeaderBackground);
+  color: var(--sapList_HeaderTextColor);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid var(--sapList_BorderColor);
+}
+
+.tabla-historicos tbody td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--sapList_BorderColor);
+  font-size: 0.875rem;
+  color: var(--sapTextColor);
+}
+
+.tabla-historicos tbody tr:hover {
+  background: var(--sapList_Hover_Background);
+}
+
+.tabla-historicos tbody tr:nth-child(even) {
+  background: var(--sapList_AlternateBackground);
+}
+
+/* Estilos para la tabla UI5 */
+ui5-table {
+  width: 100%;
+  --_ui5_table_header_row_border_width: 1px;
+}
+
+ui5-table::part(table) {
+  border-collapse: collapse;
+}
+
+/* Asegurar que los encabezados sean visibles */
+ui5-table-column {
+  font-weight: 600;
+  background-color: var(--sapList_HeaderBackground);
+  border-bottom: 2px solid var(--sapList_BorderColor);
+}
+
+ui5-table-column span {
+  font-weight: 600;
+  color: var(--sapList_HeaderTextColor);
+  font-size: 0.875rem;
+}
+
+.paginacion-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--sapGroup_ContentBorderColor);
+}
+
+.error-container {
+  margin-top: 1rem;
+}
+
+/* Estilos para valores numéricos en la tabla */
+.valor-temperatura {
+  font-weight: 600;
+}
+
+.valor-temperatura.frio {
+  color: #0070f2;
+}
+
+.valor-temperatura.calor {
+  color: #e9730c;
+}
+
+.valor-viento {
+  font-weight: 500;
+}
+
+.valor-viento.fuerte {
+  color: #bb0000;
+}
+
+.valor-humedad {
+  font-weight: 500;
+}
+
+.valor-lluvia {
+  font-weight: 600;
+  color: #0070f2;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .historico-clima-page {
+    padding: 1rem;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .resultados-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .estadisticas {
+    width: 100%;
+  }
+
+  .tabla-container {
+    margin: 0 -1.5rem;
+    padding: 0 1.5rem;
+  }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.resultados-container {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Estilos para filas de tabla */
+ui5-table-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+ui5-table-row:hover {
+  background-color: var(--sapList_Hover_Background);
+}
+
+/* Estilos para celdas */
+ui5-table-cell {
+  padding: 0.5rem;
+  font-size: 0.875rem;
+}

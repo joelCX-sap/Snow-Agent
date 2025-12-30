@@ -1,0 +1,74 @@
+[
+  {
+    "SensorChannelId": "3f61373b-d814-45a4-9b1d-8a2eb25922f6",
+    "SensorChannelName": "Dew Point",
+    "SensorChannelUnit": "°F",
+    "SensorTypeId": 22,
+    "SensorIndex": 1,
+    "ValueType": 7
+  },
+  {
+    "SensorChannelId": "2bf8ab91-ae7e-4324-a698-89f98ad7b474",
+    "SensorChannelName": "Ambient Temperature",
+    "SensorChannelUnit": "°F",
+    "SensorTypeId": 46,
+    "SensorIndex": 1,
+    "ValueType": 7
+  },
+  {
+    "SensorChannelId": "3d476fc5-e994-4d95-9698-e3a64c63c47e",
+    "SensorChannelName": "Ambient Rel. Humidity",
+    "SensorChannelUnit": "%",
+    "SensorTypeId": 47,
+    "SensorIndex": 1,
+    "ValueType": 7
+  },
+  {
+    "SensorChannelId": "5ea981eb-06d8-47e0-ade5-ff5b423ebb3e",
+    "SensorChannelName": "Road Condition Lufft",
+    "SensorChannelUnit": "logic",
+    "SensorTypeId": 107,
+    "SensorIndex": 1,
+    "ValueType": 7
+  },
+  {
+    "SensorChannelId": "29e87e4a-b4c1-4d67-b113-4e69f2f82ff4",
+    "SensorChannelName": "Friction",
+    "SensorChannelUnit": "",
+    "SensorTypeId": 113,
+    "SensorIndex": 1,
+    "ValueType": 7
+  },
+  {
+    "SensorChannelId": "6ddd1058-30f6-4b81-b90e-46db86f63a31",
+    "SensorChannelName": "Ice Percent",
+    "SensorChannelUnit": "%",
+    "SensorTypeId": 115,
+    "SensorIndex": 1,
+    "ValueType": 7
+  },
+  {
+    "SensorChannelId": "2bd612a2-6f14-4772-a2fd-25e4aa335f82",
+    "SensorChannelName": "Surface Temperature",
+    "SensorChannelUnit": "°F",
+    "SensorTypeId": 118,
+    "SensorIndex": 1,
+    "ValueType": 7
+  },
+  {
+    "SensorChannelId": "49b2f5f2-476d-4568-998c-25c86d58cd6b",
+    "SensorChannelName": "Water Film Height",
+    "SensorChannelUnit": "mil",
+    "SensorTypeId": 125,
+    "SensorIndex": 1,
+    "ValueType": 7
+  },
+  {
+    "SensorChannelId": "1de20d26-fb99-4f28-aa4c-2f0232024d5a",
+    "SensorChannelName": "Rel. Humidity o.r.",
+    "SensorChannelUnit": "%",
+    "SensorTypeId": 126,
+    "SensorIndex": 1,
+    "ValueType": 7
+  }
+]

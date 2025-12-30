@@ -1,0 +1,30 @@
+# Web Framework - FastAPI
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Environment
+python-dotenv
+
+# Document processing
+pandas
+PyPDF2
+python-docx
+openpyxl
+xlrd
+python-pptx
+
+# Database and AI
+numpy
+hdbcli
+
+# GenAI
+sap-ai-sdk-gen[all]
+
+# HTTP requests
+requests
+
+# Data validation
+pydantic
+playwright
+pandas

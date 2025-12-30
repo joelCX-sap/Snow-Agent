@@ -1,0 +1,58 @@
+.marwis-page {
+  padding: 2rem;
+  max-width: 1200px;
+ margin: 0 auto;
+}
+
+.info {
+  margin-bottom: 0.75rem;
+}
+
+/* Reutilizamos estilos de tabla similar a historico */
+.tabla-container {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.tabla-historicos {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--sapList_Background);
+  border: 1px solid var(--sapList_BorderColor);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.tabla-historicos thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--sapList_HeaderBackground);
+  color: var(--sapList_HeaderTextColor);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid var(--sapList_BorderColor);
+}
+
+.tabla-historicos tbody td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--sapList_BorderColor);
+  font-size: 0.875rem;
+  color: var(--sapTextColor);
+}
+
+.tabla-historicos tbody tr:hover {
+  background: var(--sapList_Hover_Background);
+}
+
+.tabla-historicos tbody tr:nth-child(even) {
+  background: var(--sapList_AlternateBackground);
+}
+
+@media (max-width: 768px) {
+  .marwis-page {
+    padding: 1rem;
+  }
+}

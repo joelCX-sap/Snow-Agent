@@ -1,0 +1,59 @@
+#answer {
+  color: #000 !important;
+}
+
+#consulta-clima-page {
+  display: grid;
+  gap: 1rem;
+}
+
+#consulta-clima-page ui5-card section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+#climaResumen,
+#llmAnswer,
+#workflowInfo {
+  font-family: ui-monospace, Menlo, Monaco, "SF Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace;
+  line-height: 1.4;
+  color: #000000 !important;
+}
+
+#condicionesAdversas ul,
+#fuentesList ul {
+  margin: 0;
+  padding-left: 1rem;
+  color: #000 !important;
+}
+
+#condicionesAdversas li,
+#fuentesList li {
+  color: #000 !important;
+}
+
+#weatherButton[loading]::after {
+  content: "…";
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.2; }
+  50% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+
+/* Busy Indicator a pantalla completa */
+#pageBusy {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.2);
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
+  pointer-events: auto; /* bloquea la interacción debajo cuando está visible */
+}

@@ -1,0 +1,27 @@
+---
+applications:
+  - name: agent-snow-api
+    path: backend
+    buildpack: python_buildpack
+    command: uvicorn fastapi_app:app --host 0.0.0.0 --port $PORT
+    memory: 2048M
+    disk_quota: 2048M
+    routes:
+      - route: dagent-snow.cfapps.eu01-canary.hana.ondemand.com
+    env:
+      ALLOWED_ORIGIN: https://agent-snow-rag-ui.cfapps.eu01-canary.hana.ondemand.com
+      APP_ENV: production
+      API_KEY: agent-snow-secret-key-2024
+
+  - name: agent-snow-rag-ui
+    path: ui
+    buildpack: nodejs_buildpack
+    command: npm run build && npx vite preview --host 0.0.0.0 --port $PORT
+    memory: 512M
+    disk_quota: 2048M
+    routes:
+      - route: agent-snow-rag-ui.cfapps.eu01-canary.hana.ondemand.com
+    env:
+      VITE_API_BASE_URL: https://dagent-snow.cfapps.eu01-canary.hana.ondemand.com
+      VITE_APP_HOST: agent-snow-rag-ui.cfapps.eu01-canary.hana.ondemand.com
+      VITE_API_KEY: agent-snow-secret-key-2024

@@ -1,0 +1,30 @@
+#hana-rag-page {
+  display: grid;
+  gap: 1rem;
+}
+
+#hana-rag-page ui5-card section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+#answer {
+  font-family: ui-monospace, Menlo, Monaco, "SF Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace;
+  line-height: 1.4;
+}
+
+#sources ul {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+#askButton[loading]::after {
+  content: "…";
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.2; }
+  50% { opacity: 1; }
+  100% { opacity: 0.2; }
+}

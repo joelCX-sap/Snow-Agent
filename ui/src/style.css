@@ -1,0 +1,432 @@
+/* SAP Fiori Design System Colors */
+:root {
+  /* SAP Brand Colors */
+  --sapBrandColor: #0070f2;
+  --sapHighlightColor: #286eb4;
+  --sapBaseColor: #ffffff;
+  --sapShellColor: #354a5f;
+  --sapBackgroundColor: #f7f7f7;
+  
+  /* SAP Semantic Colors */
+  --sapPositiveColor: #30914c;
+  --sapNegativeColor: #da291c;
+  --sapCriticalColor: #e26300;
+  --sapNeutralColor: #6a6d70;
+  --sapInformationColor: #0070f2;
+  
+  /* SAP Content Colors */
+  --sapPrimaryTextColor: #000000;
+  --sapSecondaryTextColor: #000000;
+  --sapPlaceholderTextColor: #000000;
+  --sapLinkColor: #000000;
+  
+  /* SAP Background Colors */
+  --sapBackgroundColorDefault: #ffffff;
+  --sapBackgroundColorSecondary: #f7f7f7;
+  --sapBackgroundColorTertiary: #edeff0;
+  --sapBackgroundColorTransparent: transparent;
+  
+  /* SAP Border Colors */
+  --sapBorderColor: #d9d9d9;
+  --sapBorderColorStrong: #89919a;
+  
+  /* SAP Shadow */
+  --sapShadowLevel1: 0 0.125rem 0.5rem 0 rgba(0, 0, 0, 0.15);
+  --sapShadowLevel2: 0 0.25rem 1rem 0 rgba(0, 0, 0, 0.15);
+  --sapShadowLevel3: 0 0.5rem 2rem 0 rgba(0, 0, 0, 0.2);
+  
+  /* Spacing */
+  --sapSpaceXS: 0.25rem;
+  --sapSpaceSM: 0.5rem;
+  --sapSpaceMD: 1rem;
+  --sapSpaceLG: 1.5rem;
+  --sapSpaceXL: 2rem;
+  --sapSpaceXXL: 3rem;
+  
+  /* Border Radius */
+  --sapBorderRadius: 0.375rem;
+  --sapBorderRadiusLarge: 0.75rem;
+
+  /* UI5 theming tokens to force black text inside Shadow DOM components */
+  --sapTextColor: #000000;
+  --sapTitleColor: #000000;
+  --sapButton_TextColor: #000000;
+  --sapLinkColor: #000000; /* ensure links render black within UI5 */
+  --sapContent_LabelColor: #000000;
+  --sapList_TextColor: #000000;
+  --sapShell_TextColor: #000000;
+}
+
+/* Global Styles */
+body {
+  margin: 0;
+  font-family: 'SAP-icons', '72', '72Black', Arial, Helvetica, sans-serif;
+  background-color: var(--sapBackgroundColorSecondary);
+  color: var(--sapPrimaryTextColor);
+  line-height: 1.5;
+}
+
+/* Force black text globally */
+body, body * {
+  color: #000 !important;
+}
+
+/* Enhanced Content Area */
+.content {
+  min-height: 400px;
+  padding: var(--sapSpaceLG);
+  background: linear-gradient(135deg, var(--sapBackgroundColorDefault) 0%, var(--sapBackgroundColorSecondary) 100%);
+  transition: all 0.3s ease-in-out;
+}
+
+/* Loading state with SAP styling */
+.content-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  background: var(--sapBackgroundColorDefault);
+  border-radius: var(--sapBorderRadius);
+  box-shadow: var(--sapShadowLevel1);
+}
+
+/* Content transitions for page changes */
+.content {
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+/* Custom Card Enhancements */
+ui5-card {
+  box-shadow: var(--sapShadowLevel2) !important;
+  border-radius: var(--sapBorderRadius) !important;
+  border: 1px solid var(--sapBorderColor) !important;
+  margin-bottom: var(--sapSpaceLG) !important;
+  transition: all 0.3s ease !important;
+  background: var(--sapBackgroundColorDefault) !important;
+}
+
+ui5-card:hover {
+  box-shadow: var(--sapShadowLevel3) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Card Header Styling */
+ui5-card-header {
+  background: linear-gradient(135deg, var(--sapBrandColor) 0%, var(--sapHighlightColor) 100%) !important;
+  color: #000 !important;
+  border-radius: var(--sapBorderRadius) var(--sapBorderRadius) 0 0 !important;
+}
+
+ui5-card-header::part(title) {
+  color: #000 !important;
+  font-weight: 600 !important;
+}
+
+/* Button Enhancements */
+ui5-button[design="Emphasized"] {
+  background: linear-gradient(135deg, var(--sapBrandColor) 0%, var(--sapHighlightColor) 100%) !important;
+  border: none !important;
+  box-shadow: var(--sapShadowLevel1) !important;
+  transition: all 0.3s ease !important;
+}
+
+ui5-button[design="Emphasized"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: var(--sapShadowLevel2) !important;
+}
+
+ui5-ai-button {
+  background: linear-gradient(135deg, var(--sapInformationColor) 0%, var(--sapBrandColor) 100%) !important;
+  box-shadow: var(--sapShadowLevel1) !important;
+  transition: all 0.3s ease !important;
+}
+
+ui5-ai-button:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: var(--sapShadowLevel2) !important;
+}
+
+/* Navigation Enhancements */
+ui5-shellbar {
+  background: linear-gradient(135deg, #D1EFFF 0%, #89D1FF 20%, #1B90FF 40%, #1B90FF 60%, #1B90FF 80%, #0070F2 100%) !important;
+  box-shadow: var(--sapShadowLevel2) !important;
+}
+
+ui5-side-navigation {
+  background: var(--sapBackgroundColorDefault) !important;
+  border-right: 1px solid var(--sapBorderColor) !important;
+  box-shadow: var(--sapShadowLevel1) !important;
+}
+
+ui5-side-navigation-item[selected] {
+  background: linear-gradient(90deg, var(--sapBrandColor) 0%, transparent 100%) !important;
+  border-left: 4px solid var(--sapBrandColor) !important;
+}
+
+/* Table Enhancements */
+ui5-table {
+  border-radius: var(--sapBorderRadius) !important;
+  overflow: hidden !important;
+  box-shadow: var(--sapShadowLevel1) !important;
+}
+
+ui5-table-header-row {
+  background: linear-gradient(135deg, var(--sapBackgroundColorTertiary) 0%, var(--sapBackgroundColorSecondary) 100%) !important;
+}
+
+ui5-table-row:nth-child(even) {
+  background: var(--sapBackgroundColorSecondary) !important;
+}
+
+ui5-table-row:hover {
+  background: rgba(0, 112, 242, 0.05) !important;
+  transition: background 0.2s ease !important;
+}
+
+/* Form Elements */
+ui5-input, ui5-textarea, ui5-select {
+  border-radius: var(--sapBorderRadius) !important;
+  border: 1px solid var(--sapBorderColor) !important;
+  transition: all 0.3s ease !important;
+}
+
+ui5-input:focus, ui5-textarea:focus, ui5-select:focus {
+  border-color: var(--sapBrandColor) !important;
+  box-shadow: 0 0 0 2px rgba(0, 112, 242, 0.2) !important;
+}
+
+/* Progress Indicator */
+ui5-progress-indicator {
+  border-radius: var(--sapBorderRadius) !important;
+  overflow: hidden !important;
+}
+
+/* Message Strip Enhancements */
+ui5-message-strip {
+  border-radius: var(--sapBorderRadius) !important;
+  box-shadow: var(--sapShadowLevel1) !important;
+}
+
+ui5-message-strip[design="Positive"] {
+  background: linear-gradient(135deg, var(--sapPositiveColor) 0%, #27ae60 100%) !important;
+}
+
+ui5-message-strip[design="Negative"] {
+  background: linear-gradient(135deg, var(--sapNegativeColor) 0%, #e74c3c 100%) !important;
+}
+
+ui5-message-strip[design="Warning"] {
+  background: linear-gradient(135deg, var(--sapCriticalColor) 0%, #f39c12 100%) !important;
+}
+
+ui5-message-strip[design="Information"] {
+  background: linear-gradient(135deg, var(--sapInformationColor) 0%, var(--sapBrandColor) 100%) !important;
+}
+
+/* File Uploader */
+ui5-file-uploader {
+  border: 2px dashed var(--sapBorderColor) !important;
+  border-radius: var(--sapBorderRadius) !important;
+  background: var(--sapBackgroundColorSecondary) !important;
+  transition: all 0.3s ease !important;
+}
+
+ui5-file-uploader:hover {
+  border-color: var(--sapBrandColor) !important;
+  background: rgba(0, 112, 242, 0.05) !important;
+}
+
+/* Panel Enhancements */
+ui5-panel {
+  border-radius: var(--sapBorderRadius) !important;
+  border: 1px solid var(--sapBorderColor) !important;
+  box-shadow: var(--sapShadowLevel1) !important;
+}
+
+/* Title Enhancements */
+ui5-title {
+  color: var(--sapPrimaryTextColor) !important;
+  margin-bottom: var(--sapSpaceMD) !important;
+}
+
+ui5-title[level="H1"] {
+  color: #000 !important;
+  -webkit-text-fill-color: #000 !important;
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  font-weight: 300 !important;
+}
+
+/* Text Enhancements */
+ui5-text {
+  color: var(--sapPrimaryTextColor) !important;
+  line-height: 1.6 !important;
+}
+
+/* Icon Enhancements */
+ui5-icon {
+  transition: all 0.3s ease !important;
+}
+
+ui5-icon:hover {
+  transform: scale(1.1) !important;
+}
+
+/* Avatar Enhancements */
+ui5-avatar {
+  box-shadow: var(--sapShadowLevel1) !important;
+  transition: all 0.3s ease !important;
+}
+
+ui5-avatar:hover {
+  transform: scale(1.05) !important;
+  box-shadow: var(--sapShadowLevel2) !important;
+}
+
+/* Custom Grid Layout */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--sapSpaceLG);
+  margin: var(--sapSpaceLG) 0;
+}
+
+/* Custom Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.6s ease forwards;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .content {
+    padding: var(--sapSpaceMD);
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: var(--sapSpaceMD);
+  }
+  
+  ui5-card {
+    margin-bottom: var(--sapSpaceMD) !important;
+  }
+}
+
+/* Custom Container Classes */
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--sapSpaceLG);
+}
+
+.feature-card {
+  background: var(--sapBackgroundColorDefault);
+  border-radius: var(--sapBorderRadiusLarge);
+  padding: var(--sapSpaceXL);
+  box-shadow: var(--sapShadowLevel2);
+  transition: all 0.3s ease;
+  border: 1px solid var(--sapBorderColor);
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--sapShadowLevel3);
+}
+
+.gradient-text {
+  color: #000 !important;
+  -webkit-text-fill-color: #000 !important;
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+}
+
+/* Status Indicators */
+.status-success {
+  color: #000 !important;
+}
+
+.status-error {
+  color: #000 !important;
+}
+
+.status-warning {
+  color: #000 !important;
+}
+
+.status-info {
+  color: #000 !important;
+}
+
+/* Loading Spinner Enhancement */
+.loading-spinner {
+  border: 3px solid var(--sapBackgroundColorTertiary);
+  border-top: 3px solid var(--sapBrandColor);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ShellBar Notification Styles */
+ui5-shellbar[show-notifications] {
+  --_ui5-shellbar-notification-btn-color: var(--sapButton_TextColor);
+}
+
+ui5-shellbar[notifications-count]:not([notifications-count="0"])::part(notifications-button) {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+/* Notification Popover Styles */
+#notificationPopover {
+  box-shadow: var(--sapShadowLevel3) !important;
+  border-radius: var(--sapBorderRadius) !important;
+}
+
+#notificationPopover ui5-title {
+  color: var(--sapBrandColor) !important;
+  margin-bottom: var(--sapSpaceSM) !important;
+}
+
+#notificationPopover ui5-text {
+  color: var(--sapSecondaryTextColor) !important;
+  line-height: 1.5 !important;
+}
+
+#openInboxBtn {
+  background: linear-gradient(135deg, var(--sapBrandColor) 0%, var(--sapHighlightColor) 100%) !important;
+  transition: all 0.3s ease !important;
+}
+
+#openInboxBtn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--sapShadowLevel2) !important;
+}

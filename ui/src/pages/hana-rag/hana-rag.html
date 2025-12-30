@@ -1,0 +1,29 @@
+<div id="hana-rag-page" class="page">
+  <ui5-title level="H2">Consulta Procedimientos</ui5-title>
+
+  <ui5-card style="margin-top: 0.5rem;">
+    <ui5-card-header title-text="Consulta" ></ui5-card-header>
+    <section style="padding: 1rem;">
+      <ui5-text>Ingrese su pregunta para consultar procedimientos:</ui5-text>
+      <ui5-textarea id="questionInput" placeholder="Ej: ¿Cuáles son los procedimientos de descongelado?" rows="4"></ui5-textarea>
+      <div style="margin-top: 0.75rem;">
+        <ui5-button id="askButton" design="Emphasized" icon="sys-enter-2">Consultar</ui5-button>
+      </div>
+      <ui5-message-strip id="askMessage" hide-close-button style="display: none; margin-top: 0.5rem;"></ui5-message-strip>
+    </section>
+  </ui5-card>
+
+  <ui5-card style="margin-top: 1rem;">
+    <ui5-card-header title-text="Respuesta"></ui5-card-header>
+    <section style="padding: 1rem;">
+      <div id="answer" style="white-space: pre-wrap;"></div>
+    </section>
+  </ui5-card>
+
+  <ui5-card style="margin-top: 1rem;">
+    <ui5-card-header title-text="Fuentes"></ui5-card-header>
+    <section style="padding: 1rem;">
+      <div id="sources"></div>
+    </section>
+  </ui5-card>
+</div>

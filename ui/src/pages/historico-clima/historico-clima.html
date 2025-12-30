@@ -1,0 +1,112 @@
+<div class="historico-clima-page">
+  <ui5-title level="H2">Consulta de Datos Históricos</ui5-title>
+  
+  <ui5-card style="margin-top: 1rem;">
+    <ui5-card-header 
+      title-text="Parámetros de Búsqueda"
+      subtitle-text="Seleccione el rango de fechas y límite de registros">
+    </ui5-card-header>
+    
+    <section style="padding: 1rem;">
+      <form id="historicoForm">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <ui5-label for="fechaInicio" required>Fecha Inicio</ui5-label>
+            <ui5-input 
+              id="fechaInicio" 
+              type="Date"
+              placeholder="YYYY-MM-DD"
+              style="width: 100%;"
+              required>
+            </ui5-input>
+          </div>
+
+          <div>
+            <ui5-label for="fechaFin" required>Fecha Fin</ui5-label>
+            <ui5-input 
+              id="fechaFin" 
+              type="Date"
+              placeholder="YYYY-MM-DD"
+              style="width: 100%;"
+              required>
+            </ui5-input>
+          </div>
+
+          <div>
+            <ui5-label for="limite">Límite de Registros</ui5-label>
+            <ui5-input 
+              id="limite" 
+              type="Number"
+              value="100"
+              style="width: 100%;"
+              placeholder="Máximo de registros">
+            </ui5-input>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <ui5-button id="btnConsultar" design="Emphasized" icon="search">
+            Consultar Históricos
+          </ui5-button>
+          <ui5-button id="btnLimpiar" design="Transparent" icon="refresh">
+            Limpiar
+          </ui5-button>
+          <ui5-button id="btnExportar" design="Default" icon="excel-attachment" disabled>
+            Exportar CSV
+          </ui5-button>
+        </div>
+      </form>
+    </section>
+  </ui5-card>
+
+  <div id="loadingIndicator" style="display: none; margin-top: 1rem;">
+    <ui5-card>
+      <section style="padding: 2rem; text-align: center;">
+        <ui5-busy-indicator active size="Large" text="Consultando datos históricos..."></ui5-busy-indicator>
+      </section>
+    </ui5-card>
+  </div>
+
+  <div id="resultadosContainer" style="display: none; margin-top: 1rem;">
+    <ui5-card>
+      <ui5-card-header 
+        title-text="Resultados de la Consulta"
+        subtitle-text="Datos meteorológicos históricos">
+      </ui5-card-header>
+      
+      <section style="padding: 1rem;">
+        <div id="estadisticas" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;"></div>
+
+        <div class="tabla-container">
+          <table id="tablaHistoricos" class="tabla-historicos">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Temp (°C)</th>
+                <th>Máx (°C)</th>
+                <th>Mín (°C)</th>
+                <th>Humedad (%)</th>
+                <th>Viento (km/h)</th>
+                <th>Dirección</th>
+                <th>Ráfaga</th>
+                <th>Presión (hPa)</th>
+                <th>Lluvia (mm)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div id="paginacion" style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1rem; padding: 1rem 0;"></div>
+      </section>
+    </ui5-card>
+  </div>
+
+  <div id="errorContainer" style="display: none; margin-top: 1rem;">
+    <ui5-message-strip design="Negative" hide-close-button>
+      <span id="errorMessage"></span>
+    </ui5-message-strip>
+  </div>
+</div>

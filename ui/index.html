@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/images/SAP_logo_square.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent SNOW</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <style>
+      /* Hide entire app until JavaScript loads and UI5 components are ready */
+      #app {
+        opacity: 0;
+        transition: opacity 0s ease-in-out;
+      }
+
+      /* Show app when ready */
+      #app.ready {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <ui5-navigation-layout id="nl1">
+        <ui5-shellbar 
+          slot="header" 
+          id="shellbar"
+          show-notifications
+          notifications-count="0">
+          <ui5-button icon="menu2" slot="startButton" id="startButton"></ui5-button>
+          <ui5-shellbar-branding slot="branding">
+            Agent SNOW
+            <img slot="logo" src="/images/SAP_logo.svg" />
+          </ui5-shellbar-branding>
+        </ui5-shellbar>
+
+        <ui5-popover id="notificationPopover" placement-type="Bottom" horizontal-align="End">
+          <div style="padding: 1rem; min-width: 300px;">
+            <ui5-title level="H5">Nueva Notificación</ui5-title>
+            <ui5-text style="display: block; margin-top: 0.5rem;">
+              El proceso de Clima y Procedimientos ha finalizado. Haz clic para ver los detalles.
+            </ui5-text>
+            <ui5-button id="openInboxBtn" design="Emphasized" style="margin-top: 1rem; width: 100%;">
+              Abrir Inbox
+            </ui5-button>
+          </div>
+        </ui5-popover>
+
+        <ui5-side-navigation id="sn1" slot="sideContent">
+          <!-- Items -->
+          <ui5-side-navigation-item text="Consulta Procedimientos" href="/hana-rag" icon="database" selected></ui5-side-navigation-item>
+          <ui5-side-navigation-item text="Clima y Procedimientos" href="/consulta-clima" icon="calendar"></ui5-side-navigation-item>
+          <ui5-side-navigation-item text="Datos Históricos" href="/historico-clima" icon="history"></ui5-side-navigation-item>
+          <ui5-side-navigation-item text="Estación MARWIS" href="/estacion-marwis" icon="sys-monitor"></ui5-side-navigation-item>
+  
+          <!-- Fixed Items -->
+          <ui5-side-navigation-item
+            slot="fixedItems"
+            text="SAP Documentation"
+            href="https://help.sap.com/"
+            target="_blank"
+            unselectable
+            icon="document"
+          ></ui5-side-navigation-item>
+          <ui5-side-navigation-item
+            slot="fixedItems"
+            text="SAP BTP"
+            href="https://www.sap.com/products/technology-platform.html"
+            target="_blank"
+            unselectable
+            icon="cloud"
+          ></ui5-side-navigation-item>
+          <ui5-side-navigation-item
+            slot="fixedItems"
+            text="Support"
+            href="https://support.sap.com/"
+            target="_blank"
+            unselectable
+            icon="sys-help"
+          ></ui5-side-navigation-item>
+        </ui5-side-navigation>
+
+        <div class="content">
+          <!-- Page content will be loaded dynamically here -->
+        </div>
+      </ui5-navigation-layout>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

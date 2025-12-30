@@ -1,0 +1,44 @@
+<div id="consulta-clima-page" class="page">
+  <ui5-title level="H2">Clima y Procedimientos</ui5-title>
+
+  <ui5-busy-indicator id="pageBusy" size="Large" style="display: none;"></ui5-busy-indicator>
+
+  <ui5-card style="margin-top: 0.5rem;">
+    <ui5-card-header title-text="Selección"></ui5-card-header>
+    <section style="padding: 1rem;">
+      <ui5-label for="cityInput">Ciudad</ui5-label>
+      <ui5-input id="cityInput" placeholder="Ej: rio grande" value="rio grande"></ui5-input>
+
+      <ui5-label for="dateInput">Fecha</ui5-label>
+      <ui5-input id="dateInput" type="Date" placeholder="YYYY-MM-DD"></ui5-input>
+
+      <div style="margin-top: 0.75rem;">
+        <ui5-button id="weatherButton" design="Emphasized" icon="sys-enter-2">Consultar</ui5-button>
+      </div>
+      <ui5-message-strip id="weatherMessage" hide-close-button style="display: none; margin-top: 0.5rem;"></ui5-message-strip>
+    </section>
+  </ui5-card>
+
+  <ui5-card style="margin-top: 1rem;">
+    <ui5-card-header title-text="Resumen del Clima"></ui5-card-header>
+    <section style="padding: 1rem;">
+      <div id="climaResumen" style="white-space: pre-wrap;"></div>
+      <div id="condicionesAdversas" style="margin-top: 0.5rem;"></div>
+    </section>
+  </ui5-card>
+
+  <ui5-card style="margin-top: 1rem;">
+    <ui5-card-header title-text="Procedimientos LLM"></ui5-card-header>
+    <section style="padding: 1rem;">
+      <div id="llmAnswer" style="white-space: pre-wrap;"></div>
+      <div id="fuentesList" style="margin-top: 0.5rem;"></div>
+    </section>
+  </ui5-card>
+
+  <ui5-card style="margin-top: 1rem;">
+    <ui5-card-header title-text="Workflow"></ui5-card-header>
+    <section style="padding: 1rem;">
+      <div id="workflowInfo" style="white-space: pre-wrap;"></div>
+    </section>
+  </ui5-card>
+</div>

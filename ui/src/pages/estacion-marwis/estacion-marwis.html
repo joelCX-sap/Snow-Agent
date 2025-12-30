@@ -1,0 +1,42 @@
+<div class="marwis-page">
+  <ui5-title level="H2">Estación MARWIS</ui5-title>
+
+  <ui5-card style="margin-top: 1rem;">
+    <ui5-card-header
+      title-text="Datos de la Estación"
+      subtitle-text="Lecturas capturadas desde ViewMondo">
+      <div slot="action">
+        <ui5-button id="btnActualizar" design="Emphasized" icon="synchronize">
+          Actualizar
+        </ui5-button>
+      </div>
+    </ui5-card-header>
+
+    <section style="padding: 1rem;">
+      <div id="info" class="info"></div>
+
+      <div id="loading" style="display: none; text-align: center; padding: 1rem;">
+        <ui5-busy-indicator active size="Medium" text="Procesando..."></ui5-busy-indicator>
+      </div>
+
+      <div id="errorContainer" style="display: none; margin-bottom: 1rem;">
+        <ui5-message-strip design="Negative" hide-close-button>
+          <span id="errorMessage"></span>
+        </ui5-message-strip>
+      </div>
+
+      <div class="tabla-container">
+        <table id="tablaMarwis" class="tabla-historicos">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Unidad</th>
+              <th>Tipo (SensorTypeId)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </ui5-card>
+</div>

@@ -1,0 +1,29 @@
+{
+  "endpoints": {
+    "api": "https://spa-api-gateway-bpi-eu-prod.cfapps.eu12.hana.ondemand.com"
+  },
+  "sap.cloud.service": "com.sap.spa.processautomation",
+  "sap.cloud.service.alias": "spa",
+  "saasregistryenabled": true,
+  "html5-apps-repo": {
+    "app_host_id": "3e2d6d19-4b3d-4502-b588-476cabfb0462,510240c3-6edd-48e3-bf3f-bb091ea4e6a8,534fc55d-0833-49fc-9efb-086858d8e992,e99e54de-9a2d-4df4-86ea-4ce6cd2146ab,a44e6050-cfa4-4f8b-98a9-9ed23326d1fa,47c3a3ac-fd9f-4d10-b9c4-0a28bfd74a8c,8dd9588a-d793-4374-a100-31ea8f266fe6,5d65055c-6dfc-4292-b624-af198639674d,522066ef-272e-4023-9ee5-4b78e2835d62,d16c6d05-fdfe-4dd4-8e64-e3747d837ea8,7872c642-b317-4c4e-acdd-0ac17903bcd3"
+  },
+  "uaa": {
+    "tenantmode": "shared",
+    "sburl": "https://internal-xsuaa.authentication.eu12.hana.ondemand.com",
+    "subaccountid": "8d3f6da7-a0f1-4f68-9c2d-2ddcd692b759",
+    "credential-type": "binding-secret",
+    "clientid": "sb-6830bcf7-4bcc-49fb-8ea0-5d242454da87!b1528864|xsuaa!b3591",
+    "xsappname": "6830bcf7-4bcc-49fb-8ea0-5d242454da87!b1528864|xsuaa!b3591",
+    "clientsecret": "f39f38aa-cb29-4e61-9fb8-3066b2c41350$yfyCMH1WUK8LKRQNOrV6e4CN_UL1Ye2nlGa6DIW6MGI=",
+    "serviceInstanceId": "6830bcf7-4bcc-49fb-8ea0-5d242454da87",
+    "url": "https://xp6xzy9lzsyf9cc9.authentication.eu12.hana.ondemand.com",
+    "uaadomain": "authentication.eu12.hana.ondemand.com",
+    "verificationkey": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlMS0zQ+AcAoe9UXfE+2W\nN76M9KI90hz7PlhpIQabAhKG2UyWp+n95G7ZO2aQUJLCm2n+K2tszfpXP17uX+N9\nxBDlUgieu+/WQTKvNbBvzYYZMq/+sZzT3rAQGMeqkern8pHXom4y3vz6wolsZHXh\n0DGouT5ESHzmQ960NUOp+0Y3XVgNGMMclWkYzwG7LHDEjb2JwlzPv2r+EU7hzfOe\nUTfvoXS7N5RitGMKMq+7oZTj8vMo4QiRF6R1L8bYXAW7mrRBskNCdqy+zCnrCW4Z\nmwqRnkxAn/pWltzWZBc96NsazhTkI0ZS0v7rhYmKsj6asvVQctPNY+MV++NRUwWV\ndQIDAQAB\n-----END PUBLIC KEY-----",
+    "apiurl": "https://api.authentication.eu12.hana.ondemand.com",
+    "identityzone": "xp6xzy9lzsyf9cc9",
+    "identityzoneid": "8d3f6da7-a0f1-4f68-9c2d-2ddcd692b759",
+    "tenantid": "8d3f6da7-a0f1-4f68-9c2d-2ddcd692b759",
+    "zoneid": "8d3f6da7-a0f1-4f68-9c2d-2ddcd692b759"
+  }
+}
