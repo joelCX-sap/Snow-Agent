@@ -23,6 +23,9 @@ sap-ai-sdk-gen[all]
 
 # HTTP requests
 requests
+requests-cache
+retry-requests
+openmeteo-requests
 
 # Data validation
 pydantic

@@ -12,9 +12,11 @@ import json
 import csv
 from datetime import datetime, date
 from rag_bariloche import RAGService, DocumentProcessor
-from api import obtener_clima, validar_fecha
+from weather_openmeteo import obtener_clima, validar_fecha
 from workflow_trigger import trigger_workflow
 from marwis import run_marwis
+from avisos import generar_avisos, obtener_tareas_procedimiento
+from simulacion import generar_datos_simulados, obtener_escenarios_disponibles
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -119,12 +121,26 @@ def analizar_condiciones_climaticas(datos_clima: Dict[str, Any]) -> Dict[str, An
         current = datos_clima.get('current', {})
         forecast = datos_clima.get('forecast', {}).get('forecastday', [])
         
-        temp_actual = current.get('temp_c', 0)
+        # Obtener temperatura - soportar tanto temp_c directo como dentro de current
+        temp_actual = current.get('temp_c')
+        if temp_actual is None:
+            temp_actual = 0
+        
         humedad = current.get('humidity', 0)
-        viento_kmh = current.get('wind_kph', 0)
+        
+        # Obtener viento - puede ser None en algunas estaciones PWS
+        viento_kmh = current.get('wind_kph')
+        if viento_kmh is None:
+            viento_kmh = 0
+        
         visibilidad = current.get('vis_km', None)
-        precipitacion = current.get('precip_mm', 0)
-        condicion = current.get('condition', {}).get('text', '')
+        
+        # Obtener precipitación - puede ser None en algunas estaciones PWS
+        precipitacion = current.get('precip_mm')
+        if precipitacion is None:
+            precipitacion = 0
+        
+        condicion = current.get('condition', {}).get('text', 'Datos de estación meteorológica')
         
         pronostico_dia = {}
         if forecast:
@@ -140,36 +156,55 @@ def analizar_condiciones_climaticas(datos_clima: Dict[str, Any]) -> Dict[str, An
         
         condiciones_adversas = []
         
-        if temp_actual < 0:
+        if temp_actual is not None and temp_actual < 0:
             condiciones_adversas.append("temperatura bajo cero")
-        elif temp_actual > 30:
+        elif temp_actual is not None and temp_actual > 30:
             condiciones_adversas.append("temperatura alta")
         
-        if viento_kmh > 30:
-            condiciones_adversas.append("viento fuerte")
-        elif viento_kmh > 50:
+        if viento_kmh and viento_kmh > 50:
             condiciones_adversas.append("viento muy fuerte")
+        elif viento_kmh and viento_kmh > 30:
+            condiciones_adversas.append("viento fuerte")
         
         if visibilidad is not None and visibilidad < 5:
             condiciones_adversas.append("visibilidad reducida")
         
-        if precipitacion > 0 or pronostico_dia.get('prob_lluvia', 0) > 50:
+        if (precipitacion and precipitacion > 0) or pronostico_dia.get('prob_lluvia', 0) > 50:
             condiciones_adversas.append("lluvia")
         
         if pronostico_dia.get('prob_nieve', 0) > 30:
             condiciones_adversas.append("nieve")
         
+        # Obtener nombre de ubicación - soportar formato PWS
+        ubicacion_nombre = location.get('name', '')
+        ubicacion_region = location.get('region', '')
+        ubicacion_country = location.get('country', '')
+        
+        if ubicacion_region:
+            ubicacion_str = f"{ubicacion_nombre}, {ubicacion_region}"
+        elif ubicacion_country:
+            ubicacion_str = f"{ubicacion_nombre}, {ubicacion_country}"
+        else:
+            ubicacion_str = ubicacion_nombre
+        
+        # Obtener fecha - soportar formato PWS (last_updated en current)
+        fecha_str = ''
+        if location.get('localtime'):
+            fecha_str = location.get('localtime', '').split(' ')[0]
+        elif current.get('last_updated'):
+            fecha_str = current.get('last_updated', '').split(' ')[0]
+        
         return {
-            'ubicacion': f"{location.get('name', '')}, {location.get('region', '')}",
+            'ubicacion': ubicacion_str,
             'temperatura_actual': temp_actual,
             'condicion_actual': condicion,
-            'viento': viento_kmh,
+            'viento': viento_kmh if viento_kmh else 'N/A',
             'visibilidad': visibilidad if visibilidad is not None else 'N/A',
             'humedad': humedad,
-            'precipitacion': precipitacion,
+            'precipitacion': precipitacion if precipitacion else 0,
             'pronostico': pronostico_dia,
             'condiciones_adversas': condiciones_adversas,
-            'fecha': datos_clima.get('location', {}).get('localtime', '').split(' ')[0]
+            'fecha': fecha_str
         }
         
     except Exception as e:
@@ -257,29 +292,39 @@ def procesar_consulta_clima_procedimientos(fecha: str, ciudad: str = "rio grande
         condiciones = analizar_condiciones_climaticas(datos_clima)
         resultado['condiciones_analizadas'] = condiciones
         
-        # 3. Generar consulta para RAG
-        consulta_rag = generar_consulta_rag(condiciones)
+        # 3. Verificar si hay condiciones adversas
+        condiciones_adversas = condiciones.get('condiciones_adversas', [])
         
-        # 4. Consultar sistema RAG
-        rag_service = RAGService()
-        respuesta, fuentes = rag_service.answer_question(consulta_rag)
+        if not condiciones_adversas:
+            # Condiciones normales - NO se requieren procedimientos ni tareas
+            resultado['procedimientos_consultados'] = True
+            resultado['respuesta_llm'] = "Las condiciones meteorológicas son normales. No se requieren procedimientos especiales ni tareas de control de hielo/nieve."
+            resultado['fuentes'] = []
+            resultado['respuesta_generada'] = True
+        else:
+            # 4. Generar consulta para RAG (solo si hay condiciones adversas)
+            consulta_rag = generar_consulta_rag(condiciones)
+            
+            # 5. Consultar sistema RAG
+            rag_service = RAGService()
+            respuesta, fuentes = rag_service.answer_question(consulta_rag)
+            
+            resultado['procedimientos_consultados'] = True
+            resultado['respuesta_llm'] = respuesta
+            resultado['fuentes'] = fuentes
+            resultado['respuesta_generada'] = True
         
-        resultado['procedimientos_consultados'] = True
-        resultado['respuesta_llm'] = respuesta
-        resultado['fuentes'] = fuentes
-        resultado['respuesta_generada'] = True
-        
-        # 5. Enviar al workflow
-        if respuesta:
-            try:
-                resultado_workflow = trigger_workflow("process-automation-service-binding.json", respuesta)
-                
-                if resultado_workflow:
-                    resultado['workflow_disparado'] = True
-                    resultado['workflow_info'] = resultado_workflow
-                
-            except Exception as e:
-                logger.error(f"Error enviando al workflow: {e}")
+        # 5. Enviar al workflow - DESACTIVADO TEMPORALMENTE
+        # if respuesta:
+        #     try:
+        #         resultado_workflow = trigger_workflow("process-automation-service-binding.json", respuesta)
+        #         
+        #         if resultado_workflow:
+        #             resultado['workflow_disparado'] = True
+        #             resultado['workflow_info'] = resultado_workflow
+        #         
+        #     except Exception as e:
+        #         logger.error(f"Error enviando al workflow: {e}")
         
         # 6. Guardar resultado en archivo JSON
         try:
@@ -515,7 +560,7 @@ async def clear_all():
 
 @app.post("/historico", response_model=HistoricoResponse)
 async def consultar_historico(request: HistoricoRequest):
-    """Consultar datos históricos de clima por rango de fechas"""
+    """Consultar datos de tareas por rango de fechas desde tareas.xlsx"""
     try:
         # Validar fechas
         try:
@@ -533,58 +578,90 @@ async def consultar_historico(request: HistoricoRequest):
                 detail="La fecha de inicio debe ser anterior a la fecha de fin"
             )
         
-        # Leer archivo CSV
-        csv_path = os.path.join('data', 'historico.csv')
-        if not os.path.exists(csv_path):
+        # Leer archivo Excel
+        try:
+            import openpyxl
+        except ImportError:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Librería openpyxl no instalada"
+            )
+        
+        excel_path = os.path.join('data', 'tareas.xlsx')
+        if not os.path.exists(excel_path):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Archivo de datos históricos no encontrado"
+                detail="Archivo de tareas no encontrado"
             )
         
         datos_filtrados = []
         
-        with open(csv_path, 'r', encoding='utf-8') as csvfile:
-            # Usar ; como delimitador según el formato del archivo
-            reader = csv.DictReader(csvfile, delimiter=';')
+        try:
+            wb = openpyxl.load_workbook(excel_path, data_only=True)
+            ws = wb.active
             
-            for row in reader:
+            # Obtener headers de la fila 2 (índice 2)
+            headers = [cell.value for cell in ws[2]]
+            
+            # Leer datos desde la fila 3
+            for row_idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
                 try:
-                    # Limpiar comillas de la fecha
-                    fecha_str = row.get('Fecha', '').strip('"')
-                    if not fecha_str:
+                    # La fecha está en la columna A (índice 0)
+                    fecha_cell = row[0]
+                    
+                    if fecha_cell is None:
                         continue
                     
-                    fecha_registro = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+                    # Convertir a date si es datetime
+                    if isinstance(fecha_cell, datetime):
+                        fecha_registro = fecha_cell.date()
+                    elif isinstance(fecha_cell, date):
+                        fecha_registro = fecha_cell
+                    else:
+                        # Intentar parsear como string
+                        fecha_registro = datetime.strptime(str(fecha_cell), '%Y-%m-%d').date()
                     
                     # Filtrar por rango de fechas
                     if fecha_inicio_obj <= fecha_registro <= fecha_fin_obj:
-                        # Limpiar comillas de todos los valores
-                        registro_limpio = {
-                            'id': row.get('id', '').strip('"'),
-                            'fecha': fecha_str,
-                            'hora': row.get('Hora', '').strip('"'),
-                            'temperatura': row.get('Temp Out', '').strip('"'),
-                            'temp_max': row.get('Hi Temp', '').strip('"'),
-                            'temp_min': row.get('Low Temp', '').strip('"'),
-                            'humedad': row.get('Out Hum', '').strip('"'),
-                            'punto_rocio': row.get('Dew Pt.', '').strip('"'),
-                            'velocidad_viento': row.get('Wind Speed', '').strip('"'),
-                            'direccion_viento': row.get('Wind Dir', '').strip('"'),
-                            'rafaga_viento': row.get('Viento rafaga', '').strip('"'),
-                            'presion': row.get('Presion Barometrica', '').strip('"'),
-                            'lluvia': row.get('Lluvia', '').strip('"'),
-                            'radiacion_solar': row.get('Solar Rad', '').strip('"'),
-                            'indice_uv': row.get('UV Index', '').strip('"')
+                        registro = {
+                            'id': row_idx,
+                            'fecha': fecha_registro.strftime('%Y-%m-%d'),
+                            'salida_sol': str(row[1]) if row[1] is not None else '',
+                            'puesta_sol': str(row[2]) if row[2] is not None else '',
+                            'motivo_activacion': str(row[3]) if row[3] is not None else '',
+                            'fenomeno_meteorologico': str(row[4]) if row[4] is not None else '',
+                            'tipo_trabajo': str(row[5]) if row[5] is not None else '',
+                            'vehiculo': str(row[6]) if row[6] is not None else '',
+                            'equipo': str(row[7]) if row[7] is not None else '',
+                            'urea_kilos': row[8] if row[8] is not None else '',
+                            'glicol_litros': row[9] if row[9] is not None else '',
+                            'prioridad_trabajo_1': str(row[10]) if row[10] is not None else '',
+                            'prioridad_trabajo_2': str(row[11]) if row[11] is not None else '',
+                            'temperatura': row[19] if row[19] is not None else '',
+                            'punto_rocio': row[20] if row[20] is not None else '',
+                            'humedad': row[21] if row[21] is not None else '',
+                            'presion': row[22] if row[22] is not None else '',
+                            'viento': row[23] if row[23] is not None else ''
                         }
-                        datos_filtrados.append(registro_limpio)
+                        datos_filtrados.append(registro)
                         
                         # Limitar resultados
                         if len(datos_filtrados) >= request.limite:
                             break
                             
-                except (ValueError, KeyError) as e:
+                except (ValueError, IndexError) as e:
                     # Saltar registros con errores
+                    logger.warning(f"Error procesando fila {row_idx}: {e}")
                     continue
+            
+            wb.close()
+            
+        except Exception as e:
+            logger.error(f"Error leyendo archivo Excel: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error leyendo archivo Excel: {str(e)}"
+            )
         
         return HistoricoResponse(
             success=True,
@@ -595,11 +672,62 @@ async def consultar_historico(request: HistoricoRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error consultando históricos: {e}")
+        logger.error(f"Error consultando tareas: {e}")
         return HistoricoResponse(
             success=False,
             message=f"Error: {str(e)}"
         )
+
+# ==================== AVISOS ====================
+
+@app.post("/generar-avisos")
+async def generar_avisos_endpoint(condiciones: Dict[str, Any]):
+    """Genera avisos basados en las condiciones climáticas"""
+    try:
+        resultado_avisos = generar_avisos(condiciones)
+        
+        # Agregar tareas del procedimiento para cada aviso
+        for aviso in resultado_avisos.get('avisos_generados', []):
+            tipo_aviso = aviso.get('tipo', '')
+            aviso['tareas_procedimiento'] = obtener_tareas_procedimiento(tipo_aviso)
+        
+        return {
+            "success": True,
+            "avisos": resultado_avisos
+        }
+    except Exception as e:
+        logger.error(f"Error generando avisos: {e}")
+        return {
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }
+
+# ==================== SIMULACIÓN ====================
+
+@app.get("/simulacion/escenarios")
+async def listar_escenarios():
+    """Lista los escenarios de simulación disponibles"""
+    try:
+        return obtener_escenarios_disponibles()
+    except Exception as e:
+        logger.error(f"Error listando escenarios: {e}")
+        return {
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }
+
+@app.get("/simulacion/{escenario}")
+async def obtener_simulacion(escenario: str):
+    """Obtiene datos simulados para el escenario especificado"""
+    try:
+        resultado = generar_datos_simulados(escenario)
+        return {"resultado": resultado}
+    except Exception as e:
+        logger.error(f"Error generando simulación: {e}")
+        return {
+            "success": False,
+            "message": f"Error: {str(e)}"
+        }
 
 # ==================== STATION DATA (MARWIS) ====================
 

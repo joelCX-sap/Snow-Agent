@@ -192,6 +192,16 @@ export const apiService = {
   async refreshStationData() {
     // POST /station-data/refresh
     return request("/station-data/refresh", "POST", {});
+  },
+
+  async generarAvisos(condiciones) {
+    // POST /generar-avisos
+    return request("/generar-avisos", "POST", condiciones);
+  },
+
+  async getSimulacion(escenario) {
+    // GET /simulacion/{escenario}
+    return request(`/simulacion/${escenario}`);
   }
 };
 

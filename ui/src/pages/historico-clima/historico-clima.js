@@ -145,30 +145,33 @@ function handleExportar() {
   try {
     // Crear CSV
     const headers = [
-      'ID', 'Fecha', 'Hora', 'Temperatura', 'Temp Máx', 'Temp Mín',
-      'Humedad', 'Punto Rocío', 'Velocidad Viento', 'Dirección Viento',
-      'Ráfaga Viento', 'Presión', 'Lluvia', 'Radiación Solar', 'Índice UV'
+      'ID', 'Fecha', 'Motivo Activación', 'Fenómeno Meteorológico', 
+      'Tipo Trabajo', 'Vehículo', 'Equipo', 'Urea (kg)', 'Glicol (L)',
+      'Prioridad Trabajo 1', 'Prioridad Trabajo 2',
+      'Temperatura (°C)', 'Punto Rocío (°C)', 'Humedad (%)', 
+      'Presión (hPa)', 'Viento (km/h)'
     ];
     
     let csv = headers.join(',') + '\n';
     
     datosActuales.forEach(registro => {
       const fila = [
-        registro.id,
-        registro.fecha,
-        registro.hora,
-        registro.temperatura,
-        registro.temp_max,
-        registro.temp_min,
-        registro.humedad,
-        registro.punto_rocio,
-        registro.velocidad_viento,
-        registro.direccion_viento,
-        registro.rafaga_viento,
-        registro.presion,
-        registro.lluvia,
-        registro.radiacion_solar,
-        registro.indice_uv
+        registro.id || '',
+        registro.fecha || '',
+        `"${(registro.motivo_activacion || '').replace(/"/g, '""')}"`,
+        `"${(registro.fenomeno_meteorologico || '').replace(/"/g, '""')}"`,
+        `"${(registro.tipo_trabajo || '').replace(/"/g, '""')}"`,
+        `"${(registro.vehiculo || '').replace(/"/g, '""')}"`,
+        `"${(registro.equipo || '').replace(/"/g, '""')}"`,
+        registro.urea_kilos || '',
+        registro.glicol_litros || '',
+        `"${(registro.prioridad_trabajo_1 || '').replace(/"/g, '""')}"`,
+        `"${(registro.prioridad_trabajo_2 || '').replace(/"/g, '""')}"`,
+        registro.temperatura || '',
+        registro.punto_rocio || '',
+        registro.humedad || '',
+        registro.presion || '',
+        registro.viento || ''
       ];
       csv += fila.join(',') + '\n';
     });
@@ -180,7 +183,7 @@ function handleExportar() {
     
     const fechaInicio = document.getElementById('fechaInicio')?.value || 'inicio';
     const fechaFin = document.getElementById('fechaFin')?.value || 'fin';
-    const nombreArchivo = `historico_clima_${fechaInicio}_${fechaFin}.csv`;
+    const nombreArchivo = `tareas_${fechaInicio}_${fechaFin}.csv`;
     
     link.setAttribute('href', url);
     link.setAttribute('download', nombreArchivo);
@@ -218,6 +221,9 @@ function mostrarEstadisticas(resultado) {
   let tempPromedio = 0;
   let tempMax = -Infinity;
   let tempMin = Infinity;
+  let totalUrea = 0;
+  let totalGlicol = 0;
+  let registrosConTemp = 0;
   
   if (datosActuales.length > 0) {
     datosActuales.forEach(registro => {
@@ -226,27 +232,40 @@ function mostrarEstadisticas(resultado) {
         tempPromedio += temp;
         tempMax = Math.max(tempMax, temp);
         tempMin = Math.min(tempMin, temp);
+        registrosConTemp++;
+      }
+      
+      const urea = parseFloat(registro.urea_kilos);
+      if (!isNaN(urea)) {
+        totalUrea += urea;
+      }
+      
+      const glicol = parseFloat(registro.glicol_litros);
+      if (!isNaN(glicol)) {
+        totalGlicol += glicol;
       }
     });
-    tempPromedio = (tempPromedio / datosActuales.length).toFixed(1);
+    if (registrosConTemp > 0) {
+      tempPromedio = (tempPromedio / registrosConTemp).toFixed(1);
+    }
   }
   
   estadisticasDiv.innerHTML = `
     <div style="background: var(--sapTile_Background); border: 1px solid var(--sapTile_BorderColor); border-radius: 0.5rem; padding: 1rem; text-align: center;">
-      <div style="font-size: 0.875rem; color: var(--sapContent_LabelColor); margin-bottom: 0.5rem;">Total Registros</div>
+      <div style="font-size: 0.875rem; color: var(--sapContent_LabelColor); margin-bottom: 0.5rem;">Total Tareas</div>
       <div style="font-size: 1.5rem; font-weight: bold; color: var(--sapTextColor);">${totalRegistros}</div>
     </div>
     <div style="background: var(--sapTile_Background); border: 1px solid var(--sapTile_BorderColor); border-radius: 0.5rem; padding: 1rem; text-align: center;">
       <div style="font-size: 0.875rem; color: var(--sapContent_LabelColor); margin-bottom: 0.5rem;">Temp. Promedio</div>
-      <div style="font-size: 1.5rem; font-weight: bold; color: var(--sapIndicationColor_5);">${tempPromedio}°C</div>
+      <div style="font-size: 1.5rem; font-weight: bold; color: var(--sapIndicationColor_5);">${registrosConTemp > 0 ? tempPromedio : 'N/A'}°C</div>
     </div>
     <div style="background: var(--sapTile_Background); border: 1px solid var(--sapTile_BorderColor); border-radius: 0.5rem; padding: 1rem; text-align: center;">
-      <div style="font-size: 0.875rem; color: var(--sapContent_LabelColor); margin-bottom: 0.5rem;">Temp. Máxima</div>
-      <div style="font-size: 1.5rem; font-weight: bold; color: var(--sapNegativeColor);">${tempMax !== -Infinity ? tempMax.toFixed(1) : 'N/A'}°C</div>
+      <div style="font-size: 0.875rem; color: var(--sapContent_LabelColor); margin-bottom: 0.5rem;">Urea Total</div>
+      <div style="font-size: 1.5rem; font-weight: bold; color: var(--sapPositiveColor);">${totalUrea.toFixed(0)} kg</div>
     </div>
     <div style="background: var(--sapTile_Background); border: 1px solid var(--sapTile_BorderColor); border-radius: 0.5rem; padding: 1rem; text-align: center;">
-      <div style="font-size: 0.875rem; color: var(--sapContent_LabelColor); margin-bottom: 0.5rem;">Temp. Mínima</div>
-      <div style="font-size: 1.5rem; font-weight: bold; color: var(--sapPositiveColor);">${tempMin !== Infinity ? tempMin.toFixed(1) : 'N/A'}°C</div>
+      <div style="font-size: 0.875rem; color: var(--sapContent_LabelColor); margin-bottom: 0.5rem;">Glicol Total</div>
+      <div style="font-size: 1.5rem; font-weight: bold; color: var(--sapNegativeColor);">${totalGlicol.toFixed(0)} L</div>
     </div>
   `;
 }
@@ -288,7 +307,7 @@ function mostrarTabla() {
     const tr = document.createElement('tr');
 
     const temp = parseFloat(registro.temperatura);
-    const viento = parseFloat(registro.velocidad_viento);
+    const viento = parseFloat(registro.viento);
 
     let claseTemp = 'valor-temperatura';
     if (!isNaN(temp) && temp < 5) claseTemp += ' frio';
@@ -304,10 +323,36 @@ function mostrarTabla() {
       return td;
     };
 
-    // ID, Fecha, Hora
+    // ID, Fecha
     tr.appendChild(mkTd(registro.id));
     tr.appendChild(mkTd(registro.fecha));
-    tr.appendChild(mkTd(registro.hora));
+    
+    // Motivo Activación
+    tr.appendChild(mkTd(registro.motivo_activacion));
+    
+    // Fenómeno Meteorológico
+    tr.appendChild(mkTd(registro.fenomeno_meteorologico));
+    
+    // Tipo de Trabajo
+    tr.appendChild(mkTd(registro.tipo_trabajo));
+    
+    // Vehículo
+    tr.appendChild(mkTd(registro.vehiculo));
+    
+    // Equipo
+    tr.appendChild(mkTd(registro.equipo));
+    
+    // Urea (kg)
+    tr.appendChild(mkTd(registro.urea_kilos));
+    
+    // Glicol (L)
+    tr.appendChild(mkTd(registro.glicol_litros));
+    
+    // Prioridad 1
+    tr.appendChild(mkTd(registro.prioridad_trabajo_1));
+    
+    // Prioridad 2
+    tr.appendChild(mkTd(registro.prioridad_trabajo_2));
 
     // Temperatura con estilo
     const tdTemp = document.createElement('td');
@@ -316,10 +361,6 @@ function mostrarTabla() {
     spanTemp.textContent = (registro.temperatura === undefined || registro.temperatura === null || registro.temperatura === '') ? 'N/A' : registro.temperatura;
     tdTemp.appendChild(spanTemp);
     tr.appendChild(tdTemp);
-
-    // Máx / Mín
-    tr.appendChild(mkTd(registro.temp_max));
-    tr.appendChild(mkTd(registro.temp_min));
 
     // Humedad con estilo
     const tdHum = document.createElement('td');
@@ -333,22 +374,9 @@ function mostrarTabla() {
     const tdViento = document.createElement('td');
     const spanViento = document.createElement('span');
     spanViento.className = claseViento;
-    spanViento.textContent = (registro.velocidad_viento === undefined || registro.velocidad_viento === null || registro.velocidad_viento === '') ? 'N/A' : registro.velocidad_viento;
+    spanViento.textContent = (registro.viento === undefined || registro.viento === null || registro.viento === '') ? 'N/A' : registro.viento;
     tdViento.appendChild(spanViento);
     tr.appendChild(tdViento);
-
-    // Dirección, Ráfaga, Presión
-    tr.appendChild(mkTd(registro.direccion_viento));
-    tr.appendChild(mkTd(registro.rafaga_viento));
-    tr.appendChild(mkTd(registro.presion));
-
-    // Lluvia con estilo
-    const tdLluvia = document.createElement('td');
-    const spanLluvia = document.createElement('span');
-    spanLluvia.className = 'valor-lluvia';
-    spanLluvia.textContent = (registro.lluvia === undefined || registro.lluvia === null || registro.lluvia === '') ? 'N/A' : registro.lluvia;
-    tdLluvia.appendChild(spanLluvia);
-    tr.appendChild(tdLluvia);
 
     tbody.appendChild(tr);
   });

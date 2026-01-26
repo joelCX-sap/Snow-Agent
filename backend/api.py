@@ -22,7 +22,7 @@ def obtener_clima(ciudad, fecha):
     estaciones = {
         'rio grande': 'IROGRA6',
         'riogrande': 'IROGRA6',
-        'ushuaia': 'IUSHUA2',  # Ejemplo, ajustar según estaciones disponibles
+        'amsterdam': 'IAMSTE161',  # Estación PWS cerca del aeropuerto de Amsterdam Schiphol
         'bariloche': 'IBARIL1',  # Ejemplo, ajustar según estaciones disponibles
     }
     
@@ -171,7 +171,7 @@ def main():
     """
     print("=== CONSULTA DE CLIMA - Weather Underground ===")
     print()
-    print("Ciudades disponibles: Rio Grande, Ushuaia, Bariloche")
+    print("Ciudades disponibles: Rio Grande, Amsterdam, Bariloche")
     print("O ingresa el ID de estación directamente (ej: IROGRA6)")
     print()
     

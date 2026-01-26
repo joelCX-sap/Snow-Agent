@@ -590,8 +590,131 @@ class RAGService:
         finally:
             self.vector_db.close()
     
+    def _get_tareas_example(self):
+        """Obtener un ejemplo de tareas realizadas del archivo tareas.xlsx"""
+        try:
+            import openpyxl
+            from datetime import datetime
+            
+            excel_path = os.path.join('data', 'tareas.xlsx')
+            if not os.path.exists(excel_path):
+                return ""
+            
+            wb = openpyxl.load_workbook(excel_path, data_only=True)
+            ws = wb.active
+            
+            # Leer la primera tarea como ejemplo
+            tareas_ejemplo = []
+            for row in ws.iter_rows(min_row=3, max_row=3, values_only=True):
+                if row[0]:
+                    fecha = row[0]
+                    if isinstance(fecha, datetime):
+                        fecha_str = fecha.strftime('%Y-%m-%d')
+                    else:
+                        fecha_str = str(fecha)
+                    
+                    tarea = {
+                        'fecha': fecha_str,
+                        'motivo': row[3] if row[3] else 'N/A',
+                        'fenomeno': row[4] if row[4] else 'N/A',
+                        'tipo_trabajo': row[5] if row[5] else 'N/A',
+                        'vehiculo': row[6] if row[6] else 'N/A',
+                        'equipo': row[7] if row[7] else 'N/A',
+                        'urea_kg': row[8] if row[8] else 'N/A',
+                        'glicol_l': row[9] if row[9] else 'N/A',
+                        'prioridad_1': row[10] if row[10] else 'N/A',
+                        'temperatura': row[19] if row[19] else 'N/A',
+                        'humedad': row[21] if row[21] else 'N/A',
+                        'viento': row[23] if row[23] else 'N/A'
+                    }
+                    tareas_ejemplo.append(tarea)
+            
+            wb.close()
+            
+            if tareas_ejemplo:
+                tarea = tareas_ejemplo[0]
+                return f"""
+EJEMPLO DE TAREA REAL REALIZADA (Fecha: {tarea['fecha']}):
+- Motivo de activación: {tarea['motivo']}
+- Fenómeno meteorológico: {tarea['fenomeno']}
+- Tipo de trabajo: {tarea['tipo_trabajo']}
+- Vehículo utilizado: {tarea['vehiculo']}
+- Equipo: {tarea['equipo']}
+- Urea aplicada: {tarea['urea_kg']} kg
+- Glicol aplicado: {tarea['glicol_l']} litros
+- Prioridad de trabajo: {tarea['prioridad_1']}
+- Condiciones climáticas:
+  * Temperatura: {tarea['temperatura']}°C
+  * Humedad: {tarea['humedad']}%
+  * Viento: {tarea['viento']} km/h
+"""
+            return ""
+            
+        except Exception as e:
+            logger.error(f"Error leyendo tareas.xlsx: {e}")
+            return ""
+    
+    def _get_snow_maintenance_recommendations(self):
+        """Obtener recomendaciones del procedimiento MVP1 SNOW"""
+        return """
+PROCEDIMIENTO MVP1 SNOW - RECOMENDACIONES PARA AVISOS DE MANTENIMIENTO:
+
+El agente SNOW monitoreará los parámetros meteorológicos (cada 2hs) y al mismo tiempo la temperatura de pista que la obtendrá desde el MARWIS (toma el último valor medido, tener en cuenta que por ahora la temperatura de pista estará seteada en -0,7°C).
+
+TABLA 1 - Generación Automática de Aviso 1:
+Cuando las condiciones de temperatura alcancen por primera vez las de la Tabla 1 y no existe ningún otro activo en el Modo de Fallo Operativo Nieve, SNOW deberá generar automáticamente un Aviso 1.
+
+Condiciones para Aviso 1 (Umbral de Alerta):
+- Temperatura ambiente: 3°C < T ≤ 6°C
+- Temperatura de rocío: Tamb. -2°C
+- Temperatura de pista: 6°C > 0
+- Humedad: ≥ 56%
+- Viento: < 36 km/h
+
+Clase de Aviso: Operaciones Aeropuerto
+Nombre del Aviso: Umbral de Alerta
+Grupo modo de fallo: Operativo Nieve
+Modo de fallo: Umbral de Alerta
+Ubicación técnica: RGA-LADAIR
+Grupo Planificador: Operaciones
+
+TABLA 2 - Generación de Aviso de Contingencia:
+En caso de que las condiciones meteorológicas empeoren simultáneamente (tabla 2) y alcanzan los parámetros establecidos en el Umbral de Contingencia SNOW deberá generar un Aviso de Contingencia inmediatamente.
+
+Condiciones para Aviso 2 (Umbral de Contingencia):
+- Temperatura ambiente: 0°C ≤ T ≤ 3°C
+- Temperatura de rocío: Tamb. -1°C
+- Temperatura de pista: < 0°C
+- Humedad: ≥ 63%
+- Viento: < 33 km/h
+
+Clase de Aviso: Operaciones Aeropuerto
+Nombre del Aviso 2: Umbral de Contingencia
+Grupo modo de fallo: Operativo Nieve
+Modo de fallo: Alerta de Contingencia
+Ubicación técnica: RGA-LADAIR
+Grupo Planificador: Operaciones
+(A futuro este aviso se convertirá en Incidencia)
+
+TABLA 3 - Activación de Alerta de Contingencia:
+Cuando las condiciones actuales meteorológicas empeoren de las establecidas en la Tabla 3 y SNOW no encuentra una lectura de Marwis en las 2hs anteriores, se activará el aviso "Alerta de Contingencia" al cambio de condiciones meteorológicas.
+
+Condiciones para Alerta de Contingencia (sin lectura MARWIS):
+- Temperatura ambiente: T ≤ 0°C
+- Temperatura de rocío: Tamb. -1°C
+- Temperatura de pista: < 0°C
+- Humedad: ≥ 63%
+- Viento: < 33 km/h
+
+IMPORTANTE:
+- Los avisos se generan automáticamente cuando se cumplen las condiciones
+- El sistema SNOW monitorea cada 2 horas
+- La temperatura de pista se obtiene del sistema MARWIS
+- Los avisos se crean en el sistema de gestión de mantenimiento
+"""
+
     def answer_question(self, question):
-        """Responder pregunta usando RAG"""
+        """Responder pregunta usando RAG con información de tareas y recomendaciones SNOW"""
         try:
             # Conectar a la base de datos
             if not self.vector_db.connect():
@@ -603,16 +726,39 @@ class RAGService:
             if not similar_chunks:
                 return "No pude encontrar información relevante en los documentos cargados.", []
             
-            # Crear contexto
+            # Crear contexto base
             context = "\n\n".join([
                 f"Documento: {chunk['filename']}\n{chunk['text']}"
                 for chunk in similar_chunks
             ])
             
+            # Detectar si la pregunta es sobre hielo, nieve o condiciones invernales
+            keywords_hielo_nieve = ['hielo', 'nieve', 'congelamiento', 'helada', 'descongelante', 
+                                    'anticongelante', 'urea', 'glicol', 'temperatura bajo cero',
+                                    'frio extremo', 'pista congelada']
+            
+            is_winter_query = any(keyword.lower() in question.lower() for keyword in keywords_hielo_nieve)
+            
+            # Agregar información adicional si es consulta sobre hielo/nieve
+            additional_context = ""
+            if is_winter_query:
+                # Agregar ejemplo de tareas
+                tareas_info = self._get_tareas_example()
+                if tareas_info:
+                    additional_context += tareas_info
+                
+                # Agregar recomendaciones SNOW
+                snow_recommendations = self._get_snow_maintenance_recommendations()
+                additional_context += "\n" + snow_recommendations
+            
+            # Combinar contexto completo
+            full_context = context
+            if additional_context:
+                full_context += "\n\n" + additional_context
+            
             # Generar respuesta usando LLM
             if ORCHESTRATION_AVAILABLE:
-                system_message = SystemMessage(
-                    content="""Eres un asistente experto en procedimientos aeroportuarios. Tu tarea es proporcionar información DETALLADA y ESPECÍFICA sobre los procedimientos operativos basándote ÚNICAMENTE en los datos proporcionados.
+                system_prompt = """Eres un asistente experto en procedimientos aeroportuarios. Tu tarea es proporcionar información DETALLADA y ESPECÍFICA sobre los procedimientos operativos basándote ÚNICAMENTE en los datos proporcionados.
 
 REGLAS CRÍTICAS - NO ALUCINAR:
 1. USA SOLAMENTE los datos meteorológicos EXACTOS que se te proporcionan
@@ -630,20 +776,41 @@ SOBRE LOS PROCEDIMIENTOS:
 5. Cita el nombre exacto del documento fuente entre comillas
 6. Si no encuentras procedimientos específicos, dilo claramente
 7. Usa formato claro con viñetas o numeración para los procedimientos
-8. Sé exhaustivo: equipos, personal, tiempos, condiciones, pero SOLO con datos reales
+8. Sé exhaustivo: equipos, personal, tiempos, condiciones, pero SOLO con datos reales"""
+
+                if is_winter_query:
+                    system_prompt += """
+
+INFORMACIÓN ADICIONAL DISPONIBLE PARA CONSULTAS SOBRE HIELO/NIEVE:
+- Se te proporciona un EJEMPLO REAL de tarea realizada del archivo tareas.xlsx
+- Se te proporcionan las RECOMENDACIONES OFICIALES del Procedimiento MVP1 SNOW sobre cuándo crear avisos de mantenimiento
+- DEBES incluir esta información en tu respuesta cuando sea relevante
+
+CUANDO RESPONDER SOBRE HIELO/NIEVE:
+1. Primero explica los procedimientos operativos del documento
+2. Luego incluye el EJEMPLO DE TAREA REAL mostrando:
+   - Qué se hizo en una situación similar
+   - Equipos y recursos utilizados
+   - Cantidades de urea/glicol aplicadas
+   - Condiciones climáticas del momento
+3. Después incluye las RECOMENDACIONES PARA AVISOS DE MANTENIMIENTO:
+   - Explica cuándo se debe crear un Aviso 1 (Umbral de Alerta)
+   - Explica cuándo se debe crear un Aviso 2 (Umbral de Contingencia)
+   - Compara las condiciones actuales con las tablas de umbrales
+   - Indica claramente si se debería crear un aviso según las condiciones actuales
 
 FORMATO DE RESPUESTA ESPERADO:
-- Primero: Ubicación EXACTA y resumen de datos meteorológicos REALES (indica "N/A" o "dato no disponible" cuando corresponda)
-- Segundo: Lista DETALLADA de los procedimientos encontrados (con todos los pasos)
-- Tercero: Consideraciones adicionales o alertas de seguridad
-- Cuarto: Fuente documental citada
+- Primero: Ubicación EXACTA y resumen de datos meteorológicos REALES
+- Segundo: Lista DETALLADA de los procedimientos encontrados
+- Tercero: EJEMPLO DE TAREA REAL realizada (si aplica)
+- Cuarto: RECOMENDACIONES PARA AVISOS DE MANTENIMIENTO con análisis de condiciones actuales (si aplica)
+- Quinto: Consideraciones adicionales o alertas de seguridad
+- Sexto: Fuente documental citada"""
 
-IMPORTANTE: NO inventes datos, NO asumas valores, NO cambies la ubicación. Sé PRECISO y HONESTO con la información disponible."""
-                )
+                system_message = SystemMessage(content=system_prompt + "\n\nIMPORTANTE: NO inventes datos, NO asumas valores, NO cambies la ubicación. Sé PRECISO y HONESTO con la información disponible.")
                 
-                user_message = UserMessage(
-                    content=f"""CONTEXTO DE PROCEDIMIENTOS:
-{context}
+                user_content = f"""CONTEXTO DE PROCEDIMIENTOS:
+{full_context}
 
 ANÁLISIS METEOROLÓGICO Y CONSULTA:
 {question}
@@ -656,10 +823,18 @@ INSTRUCCIONES ESPECÍFICAS:
 - Lista CADA paso o acción mencionada en el documento
 - Incluye requisitos, personal involucrado, equipos necesarios
 - Si el documento menciona condiciones específicas, compáralas con los datos REALES proporcionados
-- Cita textualmente las partes importantes del documento
+- Cita textualmente las partes importantes del documento"""
 
-Responde de forma DETALLADA, PRÁCTICA y PRECISA - sin inventar datos."""
-                )
+                if is_winter_query and additional_context:
+                    user_content += """
+
+INFORMACIÓN ADICIONAL INCLUIDA EN EL CONTEXTO:
+- EJEMPLO DE TAREA REAL del archivo tareas.xlsx (debes incluirlo en tu respuesta)
+- RECOMENDACIONES OFICIALES MVP1 SNOW para avisos de mantenimiento (debes incluirlas y analizar)"""
+
+                user_content += "\n\nResponde de forma DETALLADA, PRÁCTICA y PRECISA - sin inventar datos."
+                
+                user_message = UserMessage(content=user_content)
                 
                 llm = LLM(name="gpt-4o", version="latest")
                 template = Template(messages=[system_message, user_message])
