@@ -126,6 +126,78 @@ function renderCondicionesAdversas(container, condiciones) {
   container.appendChild(ul);
 }
 
+/**
+ * Renderiza los indicadores de probabilidad de lluvia y nieve
+ * @param {number} probLluvia - Probabilidad de lluvia (0-100)
+ * @param {number} probNieve - Probabilidad de nieve (0-100)
+ */
+function renderProbabilidades(probLluvia, probNieve) {
+  const container = document.getElementById("probabilidadesContainer");
+  const probLluviaValor = document.getElementById("probLluviaValor");
+  const probLluviaDesc = document.getElementById("probLluviaDesc");
+  const probLluviaCard = document.getElementById("probLluviaCard");
+  const probNieveValor = document.getElementById("probNieveValor");
+  const probNieveDesc = document.getElementById("probNieveDesc");
+  const probNieveCard = document.getElementById("probNieveCard");
+  
+  if (!container) return;
+  
+  // Mostrar el contenedor
+  container.style.display = "grid";
+  
+  // Actualizar probabilidad de lluvia
+  if (probLluviaValor) {
+    probLluviaValor.textContent = `${probLluvia}%`;
+  }
+  if (probLluviaDesc) {
+    if (probLluvia >= 70) {
+      probLluviaDesc.textContent = "Alta probabilidad";
+    } else if (probLluvia >= 40) {
+      probLluviaDesc.textContent = "Probabilidad moderada";
+    } else if (probLluvia > 0) {
+      probLluviaDesc.textContent = "Baja probabilidad";
+    } else {
+      probLluviaDesc.textContent = "Sin probabilidad";
+    }
+  }
+  // Cambiar color según nivel de probabilidad
+  if (probLluviaCard) {
+    if (probLluvia >= 70) {
+      probLluviaCard.style.background = "linear-gradient(135deg, #bbdefb 0%, #64b5f6 100%)";
+      probLluviaCard.style.borderColor = "#42a5f5";
+    } else if (probLluvia >= 40) {
+      probLluviaCard.style.background = "linear-gradient(135deg, #e3f2fd 0%, #90caf9 100%)";
+      probLluviaCard.style.borderColor = "#64b5f6";
+    }
+  }
+  
+  // Actualizar probabilidad de nieve
+  if (probNieveValor) {
+    probNieveValor.textContent = `${probNieve}%`;
+  }
+  if (probNieveDesc) {
+    if (probNieve >= 70) {
+      probNieveDesc.textContent = "Alta probabilidad";
+    } else if (probNieve >= 40) {
+      probNieveDesc.textContent = "Probabilidad moderada";
+    } else if (probNieve > 0) {
+      probNieveDesc.textContent = "Baja probabilidad";
+    } else {
+      probNieveDesc.textContent = "Sin probabilidad";
+    }
+  }
+  // Cambiar color según nivel de probabilidad
+  if (probNieveCard) {
+    if (probNieve >= 70) {
+      probNieveCard.style.background = "linear-gradient(135deg, #c5cae9 0%, #7986cb 100%)";
+      probNieveCard.style.borderColor = "#5c6bc0";
+    } else if (probNieve >= 40) {
+      probNieveCard.style.background = "linear-gradient(135deg, #e8eaf6 0%, #9fa8da 100%)";
+      probNieveCard.style.borderColor = "#7986cb";
+    }
+  }
+}
+
 function renderFuentes(container, fuentes) {
   if (!container) return;
   container.innerHTML = "";
@@ -647,6 +719,12 @@ export default function init() {
       // Resumen del clima (con metadata de Open-Meteo)
       climaResumen.textContent = formatClimaResumen(analisis, datosClima);
       renderCondicionesAdversas(condicionesAdversas, analisis ? analisis.condiciones_adversas : []);
+      
+      // Renderizar probabilidades de lluvia y nieve
+      const pronostico = analisis ? analisis.pronostico : {};
+      const probLluvia = pronostico.prob_lluvia ?? 0;
+      const probNieve = pronostico.prob_nieve ?? 0;
+      renderProbabilidades(probLluvia, probNieve);
       
       // Renderizar forecast de próximas horas (hora actual + 3 horas)
       if (datosClima && datosClima.forecast_proximas_horas) {

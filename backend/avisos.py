@@ -1,370 +1,308 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 """
-Módulo de Generación de Avisos - MVP1 SNOW
-Procesa condiciones meteorológicas y genera avisos según procedimiento establecido
+================================================================================
+MÓDULO DE GENERACIÓN DE AVISOS - MVP1 SNOW
+================================================================================
+Sistema de avisos para operaciones aeroportuarias de control de hielo y nieve.
+
+PROPÓSITO:
+    Este módulo implementa el PROCEDIMIENTO MVP1 SNOW para la generación
+    determinística de avisos basados en condiciones meteorológicas.
+    
+CARACTERÍSTICAS:
+    - Evaluación determinística (no usa IA/ML)
+    - Decisiones auditables y reproducibles
+    - Reglas de exclusión explícitas por prioridad
+    - Validación robusta de datos de entrada
+    
+TABLAS IMPLEMENTADAS:
+    - TABLA 1: Condiciones para AVISO_1 (Umbral de Alerta)
+    - TABLA 3: Condiciones base para AVISO_5 y AVISO_6
+    
+INTEGRACIÓN:
+    - MARWIS: Temperatura de pista
+    - Open-Meteo: Pronóstico meteorológico
+    - SAP PM: Códigos de aviso para mantenimiento
+
+AUTOR: Sistema MVP1 SNOW
+VERSIÓN: 2.0.0
+FECHA: 2026-01-28
+================================================================================
 """
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
+from dataclasses import dataclass
+from enum import Enum
 import json
 import os
 
-# Configuración de logging
-logging.basicConfig(level=logging.INFO)
+# =============================================================================
+# CONFIGURACIÓN DE LOGGING
+# =============================================================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Definición de tipos de avisos según MVP1 SNOW con códigos SAP
+# =============================================================================
+# CONSTANTES DEL SISTEMA
+# =============================================================================
+
+# Temperatura de pista por defecto cuando MARWIS no está disponible
+TEMP_PISTA_DEFAULT = -0.1  # °C (hardcoded según procedimiento)
+
+# Valores para datos inválidos/faltantes
+VALOR_INVALIDO = 999.0
+VALOR_MINIMO = -100.0
+VALOR_MAXIMO = 100.0
+
+
+class TipoAviso(Enum):
+    """Enumeración de tipos de aviso con su prioridad (menor = más prioritario)"""
+    AVISO_0 = (0, "Temperatura Bajo Cero - Riesgo Crítico de Hielo")
+    AVISO_6 = (1, "Alerta de nieve")
+    AVISO_5 = (2, "Alerta de lluvia")
+    AVISO_1 = (3, "Umbral de Alerta")
+    
+    def __init__(self, prioridad: int, descripcion: str):
+        self.prioridad = prioridad
+        self.descripcion = descripcion
+
+
+# =============================================================================
+# REGLAS DE EXCLUSIÓN (DECLARATIVAS)
+# =============================================================================
+# Define qué avisos son bloqueados por cada tipo de aviso
+# Estructura: {aviso_activo: [lista de avisos que bloquea]}
+
+REGLAS_EXCLUSION: Dict[TipoAviso, List[TipoAviso]] = {
+    TipoAviso.AVISO_0: [TipoAviso.AVISO_6, TipoAviso.AVISO_5, TipoAviso.AVISO_1],
+    TipoAviso.AVISO_6: [TipoAviso.AVISO_5, TipoAviso.AVISO_1],
+    TipoAviso.AVISO_5: [TipoAviso.AVISO_1],
+    TipoAviso.AVISO_1: [],  # No bloquea ninguno
+}
+
+
+# =============================================================================
+# CONFIGURACIÓN DE AVISOS (CÓDIGOS SAP PM)
+# =============================================================================
 AVISOS_CONFIG = {
     'AVISO_0': {
         'nombre': 'Temperatura Bajo Cero - Riesgo Crítico de Hielo',
         'clase': 'CRITICO',
-        'QMART': 'O1',  # Clase de aviso
-        'QMTXT': 'Temperatura Bajo Cero - Riesgo Crítico de Hielo',  # Descripción
-        'TPLNR': 'RGA-INF-PAVIM',  # Ubicación técnica
-        'SWERK': 'RGA',  # Centro de emplazamiento
-        'INGRP': 'OPE',  # Grupo planificador
-        'GEWRK': 'ADM_AD',  # Puesto de trabajo
-        'PRIOK': '1',  # Prioridad MÁXIMA
-        'QMGRP': 'YB-DERR1',  # Grupo modo de fallo
-        'QMCOD': 'Y116',  # Modo de fallo - Nuevo código para bajo cero
-        'nota': 'Aviso crítico cuando la temperatura está bajo 0°C - Alto riesgo de formación de hielo',
-        'condiciones': {
-            'temp_ambiente_max': 0,  # Temperatura menor a 0°C
-            'viento_max': 100  # Sin límite efectivo de viento
-        }
+        'QMART': 'O1',              # Clase de aviso: Operaciones Aeropuerto
+        'QMTXT': 'Temperatura Bajo Cero - Riesgo Crítico de Hielo',
+        'TPLNR': 'RGA-LADAIR',      # Ubicación técnica
+        'SWERK': 'RGA',             # Centro de emplazamiento
+        'INGRP': 'OPE',             # Grupo planificador: Operaciones
+        'GEWRK': 'ADM_AD',          # Puesto de trabajo
+        'PRIOK': '1',               # Prioridad MÁXIMA
+        'QMGRP': 'YB-DERR1',        # Grupo modo de fallo: Operativo Nieve
+        'QMCOD': 'Y116',            # Modo de fallo
+        'nota': 'Aviso crítico cuando la temperatura ambiente está bajo 0°C'
     },
     'AVISO_1': {
         'nombre': 'Umbral de Alerta',
         'clase': 'ALERTA',
-        'QMART': 'O1',  # Clase de aviso
-        'QMTXT': 'Umbral de Alerta',  # Descripción
-        'TPLNR': 'RGA-INF-PAVIM',  # Ubicación técnica
-        'SWERK': 'RGA',  # Centro de emplazamiento
-        'INGRP': 'OPE',  # Grupo planificador
-        'GEWRK': 'ADM_AD',  # Puesto de trabajo
-        'PRIOK': '2',  # Prioridad
-        'QMGRP': 'YB-DERR1',  # Grupo modo de fallo
-        'QMCOD': 'Y110',  # Modo de fallo
-        'condiciones': {
-            'temp_ambiente_min': 3,
-            'temp_ambiente_max': 6,
-            'temp_rocio_diferencia': -3,
-            'temp_pista_max': 0,
-            'humedad_min': 56,
-            'viento_max': 36
-        }
-    },
-    'AVISO_2': {
-        'nombre': 'Umbral de Contingencia',
-        'clase': 'CONTINGENCIA',
-        'QMART': 'O1',
-        'QMTXT': 'Umbral de Contingencia',
-        'TPLNR': 'RGA-INF-PAVIM',
-        'SWERK': 'RGA',
-        'INGRP': 'OPE',
-        'GEWRK': 'ADM_AD',
-        'PRIOK': '1',
-        'QMGRP': 'YB-DERR1',
-        'QMCOD': 'Y111',
-        'nota': 'A futuro este aviso se convertirá en Incidencia',
-        'condiciones': {
-            'temp_ambiente_min': -50,  # Extendido para incluir bajo cero
-            'temp_ambiente_max': 3,
-            'temp_rocio_diferencia': -1,
-            'temp_pista_max': 0,
-            'humedad_min': 40,  # Reducido para ser más inclusivo
-            'viento_max': 50  # Aumentado para ser más inclusivo
-        }
-    },
-    'AVISO_3': {
-        'nombre': 'Alerta de cambio de condiciones meteorológicas',
-        'QMART': 'O1',
-        'QMTXT': 'Alerta de cambio de condiciones meteorológicas',
-        'TPLNR': 'RGA-INF-PAVIM',
-        'SWERK': 'RGA',
-        'INGRP': 'OPE',
-        'GEWRK': 'ADM_AD',
-        'PRIOK': '2',
-        'QMGRP': 'YB-DERR1',
-        'QMCOD': 'Y112',
-        'nota': 'Genera automáticamente OT de Monitoreo de condiciones de superficies pavimentadas utilizando Marwis',
-        'condiciones': {
-            'temp_ambiente_max': 0,
-            'temp_rocio_diferencia': -1,
-            'temp_pista_max': 0,
-            'humedad_min': 63,
-            'viento_max': 33,
-            'sin_lectura_marwis_2h': True
-        }
-    },
-    'AVISO_4': {
-        'nombre': 'Alerta de hielo',
-        'QMART': 'O1',
-        'QMTXT': 'Alerta de hielo',
-        'TPLNR': 'RGA-INF-PAVIM',
-        'SWERK': 'RGA',
-        'INGRP': 'OPE',
-        'GEWRK': 'ADM_AD',
-        'PRIOK': '1',
-        'QMGRP': 'YB-DERR1',
-        'QMCOD': 'Y113',
-        'condiciones': {
-            'temp_ambiente_max': 0,
-            'temp_rocio_diferencia': -1,
-            'temp_pista_max': 0,
-            'humedad_min': 63,
-            'viento_max': 33,
-            'surface_condition': ['WET', 'DAMP'],
-            'marwis_ultimos_15min': True
-        }
+        'QMART': 'O1',              # Clase de aviso: Operaciones Aeropuerto
+        'QMTXT': 'Umbral de Alerta',
+        'TPLNR': 'RGA-LADAIR',      # Ubicación técnica
+        'SWERK': 'RGA',             # Centro de emplazamiento
+        'INGRP': 'OPE',             # Grupo planificador: Operaciones
+        'GEWRK': 'ADM_AD',          # Puesto de trabajo
+        'PRIOK': '2',               # Prioridad
+        'QMGRP': 'YB-DERR1',        # Grupo modo de fallo: Operativo Nieve
+        'QMCOD': 'Y110',            # Modo de fallo: Umbral de Alerta
+        'nota': 'Condiciones de TABLA 1 cumplidas'
     },
     'AVISO_5': {
         'nombre': 'Alerta de lluvia',
+        'clase': 'ALERTA',
         'QMART': 'O1',
         'QMTXT': 'Alerta de lluvia',
-        'TPLNR': 'RGA-INF-PAVIM',
+        'TPLNR': 'RGA-LADAIR',
         'SWERK': 'RGA',
         'INGRP': 'OPE',
         'GEWRK': 'ADM_AD',
         'PRIOK': '2',
         'QMGRP': 'YB-DERR1',
         'QMCOD': 'Y114',
-        'condiciones': {
-            'temp_ambiente_max': 0,
-            'temp_rocio_diferencia': -1,
-            'temp_pista_max': 0,
-            'humedad_min': 63,
-            'viento_max': 33,
-            'pronostico_lluvia_2h': True
-        }
+        'nota': 'TABLA 3 + pronóstico lluvia ≥70%'
     },
     'AVISO_6': {
         'nombre': 'Alerta de nieve',
+        'clase': 'ALERTA',
         'QMART': 'O1',
         'QMTXT': 'Alerta de nieve',
-        'TPLNR': 'RGA-INF-PAVIM',
+        'TPLNR': 'RGA-LADAIR',
         'SWERK': 'RGA',
         'INGRP': 'OPE',
         'GEWRK': 'ADM_AD',
         'PRIOK': '1',
         'QMGRP': 'YB-DERR1',
         'QMCOD': 'Y115',
-        'condiciones': {
-            'temp_ambiente_max': 0,
-            'temp_rocio_diferencia': -1,
-            'temp_pista_max': 0,
-            'humedad_min': 63,
-            'viento_max': 33,
-            'pronostico_nieve_3h': True
-        }
+        'nota': 'TABLA 3 + pronóstico nieve ≥70%'
     }
 }
 
-def evaluar_condiciones_aviso_0(condiciones_clima: Dict[str, Any]) -> bool:
+
+# =============================================================================
+# DATACLASSES PARA DATOS NORMALIZADOS
+# =============================================================================
+
+@dataclass
+class DatosMeteorologicos:
     """
-    Evaluar si se cumplen condiciones para Aviso 0 (Temperatura Bajo Cero - Crítico)
-    Este aviso se genera cuando la temperatura está bajo 0°C
+    Estructura normalizada de datos meteorológicos.
+    Todos los valores tienen defaults seguros y validados.
     """
-    try:
-        config = AVISOS_CONFIG['AVISO_0']['condiciones']
-        
-        temp_amb = condiciones_clima.get('temperatura_actual', 999)
-        viento = condiciones_clima.get('viento', 0)
-        
-        # Si viento viene como string 'N/A', usar 0
-        if isinstance(viento, str):
-            viento = 0
-        
-        # Condición principal: temperatura bajo cero
-        cumple = (
-            temp_amb < config['temp_ambiente_max'] and  # temp < 0°C
-            viento < config['viento_max']  # Sin límite efectivo
+    temperatura_ambiente: float = VALOR_INVALIDO
+    temperatura_rocio: float = VALOR_INVALIDO
+    temperatura_pista: float = TEMP_PISTA_DEFAULT  # Default según procedimiento
+    humedad: float = 0.0
+    viento: float = VALOR_INVALIDO
+    prob_lluvia: float = 0.0
+    prob_nieve: float = 0.0
+    fuente_temp_pista: str = "DEFAULT"  # "MARWIS" o "DEFAULT"
+    
+    def es_valido(self) -> bool:
+        """Verifica si los datos mínimos requeridos son válidos"""
+        return (
+            self.temperatura_ambiente != VALOR_INVALIDO and
+            VALOR_MINIMO <= self.temperatura_ambiente <= VALOR_MAXIMO
         )
-        
-        logger.info(f"Evaluando AVISO_0: temp_amb={temp_amb}, cumple={cumple}")
-        return cumple
-    except Exception as e:
-        logger.error(f"Error evaluando Aviso 0: {e}")
-        return False
 
-def evaluar_condiciones_aviso_1(condiciones_clima: Dict[str, Any]) -> bool:
-    """Evaluar si se cumplen condiciones para Aviso 1 (Umbral de Alerta)"""
+
+@dataclass
+class ResultadoEvaluacion:
+    """Resultado de evaluación de una tabla/condición"""
+    cumple: bool
+    razon: str
+    detalles: Dict[str, Any]
+
+
+# =============================================================================
+# FUNCIONES DE NORMALIZACIÓN DE DATOS
+# =============================================================================
+
+def normalizar_valor_numerico(valor: Any, default: float = VALOR_INVALIDO) -> float:
+    """
+    Normaliza un valor a float, manejando casos especiales.
+    
+    Args:
+        valor: Valor a normalizar (puede ser None, str, int, float)
+        default: Valor por defecto si no se puede convertir
+        
+    Returns:
+        Valor numérico normalizado
+    """
+    if valor is None:
+        return default
+    
+    if isinstance(valor, str):
+        valor_lower = valor.lower().strip()
+        if valor_lower in ('n/a', 'na', 'null', 'none', ''):
+            return default
+        try:
+            return float(valor)
+        except ValueError:
+            return default
+    
     try:
-        config = AVISOS_CONFIG['AVISO_1']['condiciones']
-        
-        temp_amb = condiciones_clima.get('temperatura_actual', 999)
-        temp_rocio = condiciones_clima.get('punto_rocio', 999)
-        temp_pista = condiciones_clima.get('temperatura_pista', 999)
-        humedad = condiciones_clima.get('humedad', 0)
-        viento = condiciones_clima.get('viento', 999)
-        
-        # Verificar todas las condiciones
-        cumple = (
-            config['temp_ambiente_min'] < temp_amb <= config['temp_ambiente_max'] and
-            temp_rocio >= (temp_amb + config['temp_rocio_diferencia']) and
-            temp_pista < config['temp_pista_max'] and
-            humedad >= config['humedad_min'] and
-            viento < config['viento_max']
-        )
-        
-        return cumple
-    except Exception as e:
-        logger.error(f"Error evaluando Aviso 1: {e}")
-        return False
+        resultado = float(valor)
+        # Validar rango físico razonable
+        if resultado < VALOR_MINIMO or resultado > VALOR_MAXIMO:
+            logger.warning(f"Valor fuera de rango físico: {resultado}")
+            return default
+        return resultado
+    except (TypeError, ValueError):
+        return default
 
-def evaluar_condiciones_aviso_2(condiciones_clima: Dict[str, Any]) -> bool:
-    """Evaluar si se cumplen condiciones para Aviso 2 (Umbral de Contingencia)"""
-    try:
-        config = AVISOS_CONFIG['AVISO_2']['condiciones']
-        
-        temp_amb = condiciones_clima.get('temperatura_actual', 999)
-        temp_rocio = condiciones_clima.get('punto_rocio', 999)
-        temp_pista = condiciones_clima.get('temperatura_pista', 999)
-        humedad = condiciones_clima.get('humedad', 0)
-        viento = condiciones_clima.get('viento', 999)
-        
-        cumple = (
-            config['temp_ambiente_min'] <= temp_amb <= config['temp_ambiente_max'] and
-            temp_rocio >= (temp_amb + config['temp_rocio_diferencia']) and
-            temp_pista < config['temp_pista_max'] and
-            humedad >= config['humedad_min'] and
-            viento < config['viento_max']
-        )
-        
-        return cumple
-    except Exception as e:
-        logger.error(f"Error evaluando Aviso 2: {e}")
-        return False
 
-def evaluar_condiciones_aviso_3(condiciones_clima: Dict[str, Any], marwis_data: Optional[Dict] = None) -> bool:
-    """Evaluar si se cumplen condiciones para Aviso 3 (Alerta de cambio de condiciones)"""
-    try:
-        config = AVISOS_CONFIG['AVISO_3']['condiciones']
+def normalizar_datos_entrada(condiciones_clima: Dict[str, Any]) -> DatosMeteorologicos:
+    """
+    Normaliza los datos de entrada a una estructura consistente.
+    
+    PROCESO:
+    1. Extrae valores del diccionario de entrada
+    2. Normaliza cada valor a float
+    3. Obtiene temperatura de pista desde MARWIS o usa default
+    4. Valida rangos físicos
+    
+    Args:
+        condiciones_clima: Diccionario con condiciones climáticas crudas
         
-        temp_amb = condiciones_clima.get('temperatura_actual', 999)
-        temp_rocio = condiciones_clima.get('punto_rocio', 999)
-        temp_pista = condiciones_clima.get('temperatura_pista', 999)
-        humedad = condiciones_clima.get('humedad', 0)
-        viento = condiciones_clima.get('viento', 999)
-        
-        # Verificar si no hay lectura de MARWIS en las últimas 2 horas
-        sin_lectura_marwis = marwis_data is None or not marwis_data.get('measurements')
-        
-        cumple = (
-            temp_amb <= config['temp_ambiente_max'] and
-            temp_rocio >= (temp_amb + config['temp_rocio_diferencia']) and
-            temp_pista < config['temp_pista_max'] and
-            humedad >= config['humedad_min'] and
-            viento < config['viento_max'] and
-            sin_lectura_marwis
-        )
-        
-        return cumple
-    except Exception as e:
-        logger.error(f"Error evaluando Aviso 3: {e}")
-        return False
+    Returns:
+        DatosMeteorologicos normalizados
+    """
+    # Extraer pronóstico si existe
+    pronostico = condiciones_clima.get('pronostico', {}) or {}
+    
+    # Crear estructura normalizada
+    datos = DatosMeteorologicos(
+        temperatura_ambiente=normalizar_valor_numerico(
+            condiciones_clima.get('temperatura_actual')
+        ),
+        temperatura_rocio=normalizar_valor_numerico(
+            condiciones_clima.get('punto_rocio')
+        ),
+        humedad=normalizar_valor_numerico(
+            condiciones_clima.get('humedad'), default=0.0
+        ),
+        viento=normalizar_valor_numerico(
+            condiciones_clima.get('viento')
+        ),
+        prob_lluvia=normalizar_valor_numerico(
+            pronostico.get('prob_lluvia'), default=0.0
+        ),
+        prob_nieve=normalizar_valor_numerico(
+            pronostico.get('prob_nieve'), default=0.0
+        ),
+    )
+    
+    # Obtener temperatura de pista desde MARWIS o usar default
+    temp_pista_raw = condiciones_clima.get('temperatura_pista')
+    if temp_pista_raw is not None and temp_pista_raw != VALOR_INVALIDO:
+        datos.temperatura_pista = normalizar_valor_numerico(temp_pista_raw, TEMP_PISTA_DEFAULT)
+        datos.fuente_temp_pista = "ENTRADA"
+    else:
+        # Intentar obtener desde MARWIS
+        marwis_data = obtener_temperatura_pista_marwis()
+        if marwis_data is not None:
+            datos.temperatura_pista = marwis_data
+            datos.fuente_temp_pista = "MARWIS"
+        else:
+            # Usar valor hardcoded según procedimiento
+            datos.temperatura_pista = TEMP_PISTA_DEFAULT
+            datos.fuente_temp_pista = "DEFAULT"
+            logger.warning(
+                f"MARWIS no disponible. Usando temperatura de pista por defecto: {TEMP_PISTA_DEFAULT}°C"
+            )
+    
+    logger.info(
+        f"Datos normalizados: T_amb={datos.temperatura_ambiente}°C, "
+        f"T_rocío={datos.temperatura_rocio}°C, T_pista={datos.temperatura_pista}°C "
+        f"(fuente: {datos.fuente_temp_pista}), Humedad={datos.humedad}%, "
+        f"Viento={datos.viento}km/h, P_lluvia={datos.prob_lluvia}%, P_nieve={datos.prob_nieve}%"
+    )
+    
+    return datos
 
-def evaluar_condiciones_aviso_4(condiciones_clima: Dict[str, Any], marwis_data: Optional[Dict] = None) -> bool:
-    """Evaluar si se cumplen condiciones para Aviso 4 (Alerta de hielo)"""
-    try:
-        config = AVISOS_CONFIG['AVISO_4']['condiciones']
-        
-        temp_amb = condiciones_clima.get('temperatura_actual', 999)
-        temp_rocio = condiciones_clima.get('punto_rocio', 999)
-        temp_pista = condiciones_clima.get('temperatura_pista', 999)
-        humedad = condiciones_clima.get('humedad', 0)
-        viento = condiciones_clima.get('viento', 999)
-        
-        # Verificar condiciones de superficie en MARWIS (últimos 15 min)
-        surface_condition = None
-        if marwis_data and marwis_data.get('measurements'):
-            # Buscar el sensor de condición de superficie
-            for measurement in marwis_data['measurements']:
-                if 'surface' in measurement.get('SensorChannelName', '').lower():
-                    surface_condition = measurement.get('Value', '').upper()
-                    break
-        
-        superficie_humeda = surface_condition in config['surface_condition'] if surface_condition else False
-        
-        cumple = (
-            temp_amb <= config['temp_ambiente_max'] and
-            temp_rocio >= (temp_amb + config['temp_rocio_diferencia']) and
-            temp_pista < config['temp_pista_max'] and
-            humedad >= config['humedad_min'] and
-            viento < config['viento_max'] and
-            superficie_humeda
-        )
-        
-        return cumple
-    except Exception as e:
-        logger.error(f"Error evaluando Aviso 4: {e}")
-        return False
 
-def evaluar_condiciones_aviso_5(condiciones_clima: Dict[str, Any]) -> bool:
-    """Evaluar si se cumplen condiciones para Aviso 5 (Alerta de lluvia)"""
-    try:
-        config = AVISOS_CONFIG['AVISO_5']['condiciones']
-        
-        temp_amb = condiciones_clima.get('temperatura_actual', 999)
-        temp_rocio = condiciones_clima.get('punto_rocio', 999)
-        temp_pista = condiciones_clima.get('temperatura_pista', 999)
-        humedad = condiciones_clima.get('humedad', 0)
-        viento = condiciones_clima.get('viento', 999)
-        
-        # Verificar pronóstico de lluvia a 2 horas
-        pronostico = condiciones_clima.get('pronostico', {})
-        prob_lluvia = pronostico.get('prob_lluvia', 0)
-        
-        cumple = (
-            temp_amb <= config['temp_ambiente_max'] and
-            temp_rocio >= (temp_amb + config['temp_rocio_diferencia']) and
-            temp_pista < config['temp_pista_max'] and
-            humedad >= config['humedad_min'] and
-            viento < config['viento_max'] and
-            prob_lluvia > 50  # Considerar probable si >50%
-        )
-        
-        return cumple
-    except Exception as e:
-        logger.error(f"Error evaluando Aviso 5: {e}")
-        return False
-
-def evaluar_condiciones_aviso_6(condiciones_clima: Dict[str, Any]) -> bool:
-    """Evaluar si se cumplen condiciones para Aviso 6 (Alerta de nieve)"""
-    try:
-        config = AVISOS_CONFIG['AVISO_6']['condiciones']
-        
-        temp_amb = condiciones_clima.get('temperatura_actual', 999)
-        temp_rocio = condiciones_clima.get('punto_rocio', 999)
-        temp_pista = condiciones_clima.get('temperatura_pista', 999)
-        humedad = condiciones_clima.get('humedad', 0)
-        viento = condiciones_clima.get('viento', 999)
-        
-        # Verificar pronóstico de nieve a 3 horas
-        pronostico = condiciones_clima.get('pronostico', {})
-        prob_nieve = pronostico.get('prob_nieve', 0)
-        
-        cumple = (
-            temp_amb <= config['temp_ambiente_max'] and
-            temp_rocio >= (temp_amb + config['temp_rocio_diferencia']) and
-            temp_pista < config['temp_pista_max'] and
-            humedad >= config['humedad_min'] and
-            viento < config['viento_max'] and
-            prob_nieve > 30  # Considerar probable si >30%
-        )
-        
-        return cumple
-    except Exception as e:
-        logger.error(f"Error evaluando Aviso 6: {e}")
-        return False
-
-def get_latest_marwis_data() -> Optional[Dict]:
-    """Obtener datos más recientes de MARWIS desde station_data.json"""
+def obtener_temperatura_pista_marwis() -> Optional[float]:
+    """
+    Obtiene la temperatura de pista desde los datos de MARWIS.
+    
+    Returns:
+        Temperatura de pista en °C o None si no está disponible
+    """
     try:
         station_data_path = os.path.join(os.path.dirname(__file__), 'station_data.json')
+        
         if not os.path.exists(station_data_path):
             logger.warning("Archivo station_data.json no encontrado")
             return None
@@ -372,7 +310,430 @@ def get_latest_marwis_data() -> Optional[Dict]:
         with open(station_data_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        # Compatibilidad con ambos formatos
+        # Buscar sensor de temperatura de superficie/pista
+        measurements = data if isinstance(data, list) else data.get('measurements', [])
+        
+        for measurement in measurements:
+            sensor_name = measurement.get('SensorChannelName', '').lower()
+            if any(keyword in sensor_name for keyword in ['surface', 'road', 'pista', 'pavement']):
+                if 'temp' in sensor_name:
+                    valor = normalizar_valor_numerico(measurement.get('Value'))
+                    if valor != VALOR_INVALIDO:
+                        logger.info(f"Temperatura de pista obtenida de MARWIS: {valor}°C")
+                        return valor
+        
+        logger.warning("No se encontró sensor de temperatura de pista en MARWIS")
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error leyendo datos de MARWIS: {e}")
+        return None
+
+
+# =============================================================================
+# FUNCIONES DE EVALUACIÓN DE TABLAS
+# =============================================================================
+
+def evaluar_tabla_1(datos: DatosMeteorologicos) -> ResultadoEvaluacion:
+    """
+    TABLA 1 – AVISO 1 (UMBRAL DE ALERTA)
+    
+    Condiciones que deben cumplirse TODAS:
+    - Tambiente:  3 < T ≤ 6
+    - Trocío:     ≥ Tambiente - 3
+    - Tpista:     < 0
+    - Humedad:    ≥ 56%
+    - Viento:     < 36 km/h
+    
+    Args:
+        datos: Datos meteorológicos normalizados
+        
+    Returns:
+        ResultadoEvaluacion con detalle de cumplimiento
+    """
+    detalles = {
+        'temperatura_ambiente': {
+            'valor': datos.temperatura_ambiente,
+            'condicion': '3 < T ≤ 6',
+            'cumple': 3 < datos.temperatura_ambiente <= 6
+        },
+        'temperatura_rocio': {
+            'valor': datos.temperatura_rocio,
+            'condicion': f'≥ {datos.temperatura_ambiente - 3:.1f} (Tamb - 3)',
+            'cumple': datos.temperatura_rocio >= (datos.temperatura_ambiente - 3)
+        },
+        'temperatura_pista': {
+            'valor': datos.temperatura_pista,
+            'condicion': '< 0',
+            'cumple': datos.temperatura_pista < 0
+        },
+        'humedad': {
+            'valor': datos.humedad,
+            'condicion': '≥ 56%',
+            'cumple': datos.humedad >= 56
+        },
+        'viento': {
+            'valor': datos.viento,
+            'condicion': '< 36 km/h',
+            'cumple': datos.viento < 36
+        }
+    }
+    
+    # Verificar que TODAS las condiciones se cumplan
+    todas_cumplen = all(d['cumple'] for d in detalles.values())
+    
+    # Generar razón descriptiva
+    if todas_cumplen:
+        razon = "TABLA 1 CUMPLIDA: Todas las condiciones satisfechas"
+    else:
+        condiciones_fallidas = [k for k, v in detalles.items() if not v['cumple']]
+        razon = f"TABLA 1 NO CUMPLIDA: Condiciones fallidas: {', '.join(condiciones_fallidas)}"
+    
+    return ResultadoEvaluacion(
+        cumple=todas_cumplen,
+        razon=razon,
+        detalles=detalles
+    )
+
+
+def evaluar_tabla_3(datos: DatosMeteorologicos) -> ResultadoEvaluacion:
+    """
+    TABLA 3 – CONDICIONES BASE PARA AVISO 5 Y 6
+    
+    Condiciones que deben cumplirse TODAS:
+    - Tambiente:  T ≤ 0
+    - Trocío:     ≥ Tambiente - 1
+    - Tpista:     < 0
+    - Humedad:    ≥ 63%
+    - Viento:     < 33 km/h
+    
+    Args:
+        datos: Datos meteorológicos normalizados
+        
+    Returns:
+        ResultadoEvaluacion con detalle de cumplimiento
+    """
+    detalles = {
+        'temperatura_ambiente': {
+            'valor': datos.temperatura_ambiente,
+            'condicion': 'T ≤ 0',
+            'cumple': datos.temperatura_ambiente <= 0
+        },
+        'temperatura_rocio': {
+            'valor': datos.temperatura_rocio,
+            'condicion': f'≥ {datos.temperatura_ambiente - 1:.1f} (Tamb - 1)',
+            'cumple': datos.temperatura_rocio >= (datos.temperatura_ambiente - 1)
+        },
+        'temperatura_pista': {
+            'valor': datos.temperatura_pista,
+            'condicion': '< 0',
+            'cumple': datos.temperatura_pista < 0
+        },
+        'humedad': {
+            'valor': datos.humedad,
+            'condicion': '≥ 63%',
+            'cumple': datos.humedad >= 63
+        },
+        'viento': {
+            'valor': datos.viento,
+            'condicion': '< 33 km/h',
+            'cumple': datos.viento < 33
+        }
+    }
+    
+    todas_cumplen = all(d['cumple'] for d in detalles.values())
+    
+    if todas_cumplen:
+        razon = "TABLA 3 CUMPLIDA: Todas las condiciones base satisfechas"
+    else:
+        condiciones_fallidas = [k for k, v in detalles.items() if not v['cumple']]
+        razon = f"TABLA 3 NO CUMPLIDA: Condiciones fallidas: {', '.join(condiciones_fallidas)}"
+    
+    return ResultadoEvaluacion(
+        cumple=todas_cumplen,
+        razon=razon,
+        detalles=detalles
+    )
+
+
+# =============================================================================
+# FUNCIONES DE EVALUACIÓN DE AVISOS INDIVIDUALES
+# =============================================================================
+
+def evaluar_aviso_0(datos: DatosMeteorologicos) -> Tuple[bool, str]:
+    """
+    AVISO_0: Temperatura Bajo Cero - Riesgo Crítico de Hielo
+    
+    Condición: Temperatura ambiente < 0°C
+    
+    Este es el aviso de MÁXIMA PRIORIDAD y bloquea todos los demás.
+    """
+    cumple = datos.temperatura_ambiente < 0
+    
+    if cumple:
+        razon = f"AVISO_0 ACTIVO: Temperatura ambiente {datos.temperatura_ambiente}°C < 0°C"
+    else:
+        razon = f"AVISO_0 NO APLICA: Temperatura ambiente {datos.temperatura_ambiente}°C ≥ 0°C"
+    
+    logger.info(f"Evaluación AVISO_0: {razon}")
+    return cumple, razon
+
+
+def evaluar_aviso_1(datos: DatosMeteorologicos) -> Tuple[bool, str, ResultadoEvaluacion]:
+    """
+    AVISO_1: Umbral de Alerta
+    
+    Requiere: Cumplir TODAS las condiciones de TABLA 1
+    """
+    resultado_tabla = evaluar_tabla_1(datos)
+    
+    logger.info(f"Evaluación AVISO_1 (TABLA 1): {resultado_tabla.razon}")
+    return resultado_tabla.cumple, resultado_tabla.razon, resultado_tabla
+
+
+def evaluar_aviso_5(datos: DatosMeteorologicos) -> Tuple[bool, str, Optional[ResultadoEvaluacion]]:
+    """
+    AVISO_5: Alerta de Lluvia
+    
+    Requiere:
+    1. Cumplir TABLA 3 (condiciones base)
+    2. Pronóstico de lluvia a 2 horas ≥ 70%
+    """
+    # Evaluar TABLA 3
+    resultado_tabla = evaluar_tabla_3(datos)
+    
+    if not resultado_tabla.cumple:
+        razon = f"AVISO_5 NO APLICA: {resultado_tabla.razon}"
+        logger.info(f"Evaluación AVISO_5: {razon}")
+        return False, razon, resultado_tabla
+    
+    # Verificar pronóstico de lluvia
+    if datos.prob_lluvia >= 70:
+        razon = f"AVISO_5 ACTIVO: TABLA 3 cumplida + Prob. lluvia {datos.prob_lluvia}% ≥ 70%"
+        logger.info(f"Evaluación AVISO_5: {razon}")
+        return True, razon, resultado_tabla
+    else:
+        razon = f"AVISO_5 NO APLICA: TABLA 3 cumplida pero Prob. lluvia {datos.prob_lluvia}% < 70%"
+        logger.info(f"Evaluación AVISO_5: {razon}")
+        return False, razon, resultado_tabla
+
+
+def evaluar_aviso_6(datos: DatosMeteorologicos) -> Tuple[bool, str, Optional[ResultadoEvaluacion]]:
+    """
+    AVISO_6: Alerta de Nieve
+    
+    Requiere:
+    1. Cumplir TABLA 3 (condiciones base)
+    2. Pronóstico de nieve a 3 horas ≥ 70%
+    """
+    # Evaluar TABLA 3
+    resultado_tabla = evaluar_tabla_3(datos)
+    
+    if not resultado_tabla.cumple:
+        razon = f"AVISO_6 NO APLICA: {resultado_tabla.razon}"
+        logger.info(f"Evaluación AVISO_6: {razon}")
+        return False, razon, resultado_tabla
+    
+    # Verificar pronóstico de nieve
+    if datos.prob_nieve >= 70:
+        razon = f"AVISO_6 ACTIVO: TABLA 3 cumplida + Prob. nieve {datos.prob_nieve}% ≥ 70%"
+        logger.info(f"Evaluación AVISO_6: {razon}")
+        return True, razon, resultado_tabla
+    else:
+        razon = f"AVISO_6 NO APLICA: TABLA 3 cumplida pero Prob. nieve {datos.prob_nieve}% < 70%"
+        logger.info(f"Evaluación AVISO_6: {razon}")
+        return False, razon, resultado_tabla
+
+
+# =============================================================================
+# FUNCIÓN DE DECISIÓN FINAL CON EXCLUSIONES
+# =============================================================================
+
+def aplicar_reglas_exclusion(avisos_candidatos: Dict[TipoAviso, bool]) -> List[TipoAviso]:
+    """
+    Aplica las reglas de exclusión para determinar avisos finales.
+    
+    REGLAS DE PRIORIDAD Y EXCLUSIÓN:
+    - AVISO_0 bloquea TODOS los demás
+    - AVISO_6 bloquea AVISO_5 y AVISO_1
+    - AVISO_5 bloquea AVISO_1
+    - AVISO_1 solo se genera si ningún aviso superior aplica
+    
+    Args:
+        avisos_candidatos: Dict con {TipoAviso: bool} indicando si cada aviso cumple condiciones
+        
+    Returns:
+        Lista de avisos finales a generar (después de aplicar exclusiones)
+    """
+    avisos_finales = []
+    avisos_excluidos = set()
+    
+    # Ordenar por prioridad (menor número = mayor prioridad)
+    avisos_ordenados = sorted(
+        avisos_candidatos.keys(),
+        key=lambda x: x.prioridad
+    )
+    
+    for tipo_aviso in avisos_ordenados:
+        cumple = avisos_candidatos[tipo_aviso]
+        
+        if not cumple:
+            continue
+        
+        if tipo_aviso in avisos_excluidos:
+            logger.warning(
+                f"{tipo_aviso.name} EXCLUIDO: Bloqueado por aviso de mayor prioridad"
+            )
+            continue
+        
+        # Este aviso se genera
+        avisos_finales.append(tipo_aviso)
+        
+        # Aplicar exclusiones para avisos de menor prioridad
+        bloqueados = REGLAS_EXCLUSION.get(tipo_aviso, [])
+        for aviso_bloqueado in bloqueados:
+            if aviso_bloqueado not in avisos_excluidos:
+                avisos_excluidos.add(aviso_bloqueado)
+                if avisos_candidatos.get(aviso_bloqueado, False):
+                    logger.warning(
+                        f"{aviso_bloqueado.name} EXCLUIDO: Bloqueado por {tipo_aviso.name} "
+                        f"(regla de exclusión declarativa)"
+                    )
+    
+    return avisos_finales
+
+
+# =============================================================================
+# FUNCIÓN PRINCIPAL: generar_avisos (INTERFAZ PÚBLICA)
+# =============================================================================
+
+def generar_avisos(condiciones_clima: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Evalúa las condiciones climáticas y genera los avisos correspondientes.
+    
+    PROCESO:
+    1. Normalizar datos de entrada
+    2. Evaluar cada tipo de aviso según sus tablas
+    3. Aplicar reglas de exclusión por prioridad
+    4. Generar avisos finales con códigos SAP
+    
+    Args:
+        condiciones_clima: Diccionario con condiciones climáticas desde el sistema meteorológico
+        
+    Returns:
+        Dict con estructura:
+        {
+            'avisos_generados': [...],
+            'total_avisos': int,
+            'condiciones_evaluadas': {...},
+            'datos_marwis': {...},
+            'fecha_evaluacion': str,
+            'log_decisiones': [...]
+        }
+    """
+    logger.info("=" * 70)
+    logger.info("INICIANDO EVALUACIÓN DE CONDICIONES PARA GENERACIÓN DE AVISOS")
+    logger.info("=" * 70)
+    
+    log_decisiones = []
+    
+    # PASO 1: Normalizar datos de entrada
+    datos = normalizar_datos_entrada(condiciones_clima)
+    
+    if not datos.es_valido():
+        logger.warning("Datos de entrada inválidos o insuficientes")
+        return {
+            'avisos_generados': [],
+            'total_avisos': 0,
+            'condiciones_evaluadas': condiciones_clima,
+            'datos_marwis': None,
+            'fecha_evaluacion': datetime.now().isoformat(),
+            'log_decisiones': ["Datos de entrada inválidos"],
+            'error': "Datos de entrada inválidos o insuficientes"
+        }
+    
+    # PASO 2: Evaluar cada aviso
+    avisos_candidatos = {}
+    
+    # Evaluar AVISO_0
+    cumple_0, razon_0 = evaluar_aviso_0(datos)
+    avisos_candidatos[TipoAviso.AVISO_0] = cumple_0
+    log_decisiones.append(razon_0)
+    
+    # Evaluar AVISO_6
+    cumple_6, razon_6, _ = evaluar_aviso_6(datos)
+    avisos_candidatos[TipoAviso.AVISO_6] = cumple_6
+    log_decisiones.append(razon_6)
+    
+    # Evaluar AVISO_5
+    cumple_5, razon_5, _ = evaluar_aviso_5(datos)
+    avisos_candidatos[TipoAviso.AVISO_5] = cumple_5
+    log_decisiones.append(razon_5)
+    
+    # Evaluar AVISO_1
+    cumple_1, razon_1, _ = evaluar_aviso_1(datos)
+    avisos_candidatos[TipoAviso.AVISO_1] = cumple_1
+    log_decisiones.append(razon_1)
+    
+    # PASO 3: Aplicar reglas de exclusión
+    logger.info("-" * 70)
+    logger.info("APLICANDO REGLAS DE EXCLUSIÓN")
+    logger.info("-" * 70)
+    
+    avisos_finales = aplicar_reglas_exclusion(avisos_candidatos)
+    
+    # PASO 4: Construir respuesta
+    avisos_generados = []
+    
+    for tipo_aviso in avisos_finales:
+        config_aviso = AVISOS_CONFIG[tipo_aviso.name].copy()
+        config_aviso['tipo'] = tipo_aviso.name
+        config_aviso['prioridad'] = tipo_aviso.prioridad
+        config_aviso['fecha_generacion'] = datetime.now().isoformat()
+        config_aviso['tareas_procedimiento'] = obtener_tareas_procedimiento(tipo_aviso.name)
+        avisos_generados.append(config_aviso)
+        
+        logger.info(f"✓ {tipo_aviso.name} ({tipo_aviso.descripcion}) GENERADO")
+    
+    # Obtener datos de MARWIS para el resultado
+    marwis_data = obtener_datos_marwis_completos()
+    
+    resultado = {
+        'avisos_generados': avisos_generados,
+        'total_avisos': len(avisos_generados),
+        'condiciones_evaluadas': condiciones_clima,
+        'datos_normalizados': {
+            'temperatura_ambiente': datos.temperatura_ambiente,
+            'temperatura_rocio': datos.temperatura_rocio,
+            'temperatura_pista': datos.temperatura_pista,
+            'fuente_temp_pista': datos.fuente_temp_pista,
+            'humedad': datos.humedad,
+            'viento': datos.viento,
+            'prob_lluvia': datos.prob_lluvia,
+            'prob_nieve': datos.prob_nieve
+        },
+        'datos_marwis': marwis_data,
+        'fecha_evaluacion': datetime.now().isoformat(),
+        'log_decisiones': log_decisiones
+    }
+    
+    logger.info("=" * 70)
+    logger.info(f"EVALUACIÓN COMPLETADA. Total de avisos generados: {len(avisos_generados)}")
+    logger.info("=" * 70)
+    
+    return resultado
+
+
+def obtener_datos_marwis_completos() -> Optional[Dict]:
+    """Obtener datos completos de MARWIS desde station_data.json"""
+    try:
+        station_data_path = os.path.join(os.path.dirname(__file__), 'station_data.json')
+        if not os.path.exists(station_data_path):
+            return None
+        
+        with open(station_data_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
         if isinstance(data, list):
             return {'measurements': data}
         elif isinstance(data, dict):
@@ -383,112 +744,21 @@ def get_latest_marwis_data() -> Optional[Dict]:
         logger.error(f"Error leyendo station_data.json: {e}")
         return None
 
-def generar_avisos(condiciones_clima: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Evalúa las condiciones climáticas y genera los avisos correspondientes
-    
-    Args:
-        condiciones_clima: Diccionario con condiciones climáticas analizadas
-        
-    Returns:
-        Dict con avisos generados y datos de MARWIS
-    """
-    try:
-        logger.info("Iniciando evaluación de condiciones para generación de avisos")
-        
-        # Obtener datos de MARWIS
-        marwis_data = None
-        try:
-            marwis_data = get_latest_marwis_data()
-            logger.info("Datos de MARWIS obtenidos exitosamente")
-        except Exception as e:
-            logger.warning(f"No se pudieron obtener datos de MARWIS: {e}")
-        
-        avisos_generados = []
-        
-        # Evaluar cada tipo de aviso en orden de prioridad
-        # AVISO_0: Temperatura bajo cero (MÁXIMA PRIORIDAD)
-        if evaluar_condiciones_aviso_0(condiciones_clima):
-            aviso = AVISOS_CONFIG['AVISO_0'].copy()
-            aviso['tipo'] = 'AVISO_0'
-            aviso['prioridad'] = 0  # Máxima prioridad
-            aviso['fecha_generacion'] = datetime.now().isoformat()
-            avisos_generados.append(aviso)
-            logger.info("⚠️ AVISO 0 (Temperatura Bajo Cero - CRÍTICO) generado")
-        
-        if evaluar_condiciones_aviso_6(condiciones_clima):
-            aviso = AVISOS_CONFIG['AVISO_6'].copy()
-            aviso['tipo'] = 'AVISO_6'
-            aviso['prioridad'] = 1
-            aviso['fecha_generacion'] = datetime.now().isoformat()
-            avisos_generados.append(aviso)
-            logger.info("Aviso 6 (Alerta de nieve) generado")
-        
-        if evaluar_condiciones_aviso_5(condiciones_clima):
-            aviso = AVISOS_CONFIG['AVISO_5'].copy()
-            aviso['tipo'] = 'AVISO_5'
-            aviso['prioridad'] = 2
-            aviso['fecha_generacion'] = datetime.now().isoformat()
-            avisos_generados.append(aviso)
-            logger.info("Aviso 5 (Alerta de lluvia) generado")
-        
-        if evaluar_condiciones_aviso_4(condiciones_clima, marwis_data):
-            aviso = AVISOS_CONFIG['AVISO_4'].copy()
-            aviso['tipo'] = 'AVISO_4'
-            aviso['prioridad'] = 3
-            aviso['fecha_generacion'] = datetime.now().isoformat()
-            avisos_generados.append(aviso)
-            logger.info("Aviso 4 (Alerta de hielo) generado")
-        
-        if evaluar_condiciones_aviso_3(condiciones_clima, marwis_data):
-            aviso = AVISOS_CONFIG['AVISO_3'].copy()
-            aviso['tipo'] = 'AVISO_3'
-            aviso['prioridad'] = 4
-            aviso['fecha_generacion'] = datetime.now().isoformat()
-            avisos_generados.append(aviso)
-            logger.info("Aviso 3 (Alerta de cambio de condiciones) generado")
-        
-        if evaluar_condiciones_aviso_2(condiciones_clima):
-            aviso = AVISOS_CONFIG['AVISO_2'].copy()
-            aviso['tipo'] = 'AVISO_2'
-            aviso['prioridad'] = 5
-            aviso['fecha_generacion'] = datetime.now().isoformat()
-            avisos_generados.append(aviso)
-            logger.info("Aviso 2 (Umbral de Contingencia) generado")
-        
-        if evaluar_condiciones_aviso_1(condiciones_clima):
-            aviso = AVISOS_CONFIG['AVISO_1'].copy()
-            aviso['tipo'] = 'AVISO_1'
-            aviso['prioridad'] = 6
-            aviso['fecha_generacion'] = datetime.now().isoformat()
-            avisos_generados.append(aviso)
-            logger.info("Aviso 1 (Umbral de Alerta) generado")
-        
-        # Ordenar por prioridad
-        avisos_generados.sort(key=lambda x: x['prioridad'])
-        
-        resultado = {
-            'avisos_generados': avisos_generados,
-            'total_avisos': len(avisos_generados),
-            'condiciones_evaluadas': condiciones_clima,
-            'datos_marwis': marwis_data,
-            'fecha_evaluacion': datetime.now().isoformat()
-        }
-        
-        logger.info(f"Evaluación completada. Total de avisos generados: {len(avisos_generados)}")
-        return resultado
-        
-    except Exception as e:
-        logger.error(f"Error generando avisos: {e}")
-        return {
-            'avisos_generados': [],
-            'total_avisos': 0,
-            'error': str(e),
-            'fecha_evaluacion': datetime.now().isoformat()
-        }
+
+# =============================================================================
+# FUNCIÓN: obtener_tareas_procedimiento (INTERFAZ PÚBLICA)
+# =============================================================================
 
 def obtener_tareas_procedimiento(tipo_aviso: str) -> List[str]:
-    """Obtener tareas a realizar según el procedimiento para cada tipo de aviso"""
+    """
+    Obtener tareas a realizar según el procedimiento para cada tipo de aviso.
+    
+    Args:
+        tipo_aviso: Identificador del aviso (AVISO_0, AVISO_1, AVISO_5, AVISO_6)
+        
+    Returns:
+        Lista de tareas a realizar según el procedimiento operativo
+    """
     tareas_por_aviso = {
         'AVISO_0': [
             '⚠️ ALERTA CRÍTICA: Temperatura bajo cero detectada',
@@ -509,44 +779,75 @@ def obtener_tareas_procedimiento(tipo_aviso: str) -> List[str]:
             'Preparar equipos de control de hielo/nieve',
             'Revisar stock de descongelantes (urea/glicol)'
         ],
-        'AVISO_2': [
-            'Activar protocolo de contingencia',
-            'Inspección inmediata de pistas y rodajes',
-            'Aplicación preventiva de descongelantes',
-            'Posicionamiento de equipos en áreas críticas',
-            'Comunicación con torre de control',
-            'Evaluación de operaciones aeroportuarias'
-        ],
-        'AVISO_3': [
-            'Generar OT de Monitoreo de condiciones de superficies pavimentadas',
-            'Realizar medición con MARWIS de pista/rodaje/apron',
-            'Documentar condiciones de superficie',
-            'Reportar hallazgos a operaciones',
-            'Evaluar necesidad de tratamiento preventivo'
-        ],
-        'AVISO_4': [
-            'Aplicación inmediata de descongelantes',
-            'Tratamiento de todas las superficies pavimentadas',
-            'Inspección continua cada 30 minutos',
-            'Coordinar con torre de control',
-            'Restringir operaciones si es necesario',
-            'Documentar aplicación de químicos'
-        ],
         'AVISO_5': [
             'Preparar equipos de drenaje',
             'Inspeccionar sistemas de evacuación de agua',
             'Posicionar equipos de barrido',
-            'Monitorear acumulación de agua',
-            'Evaluar condiciones de fricción'
+            'Monitorear acumulación de agua en pista',
+            'Evaluar condiciones de fricción',
+            'Coordinar con torre de control sobre estado de pista'
         ],
         'AVISO_6': [
             'Activar equipo completo de remoción de nieve',
             'Aplicación preventiva de descongelantes',
-            'Posicionar tractores y equipos',
+            'Posicionar tractores y equipos de remoción',
             'Preparar stock de urea y glicol',
-            'Coordinar con meteorología',
-            'Planificar turnos extendidos de personal'
+            'Coordinar con meteorología para actualización continua',
+            'Planificar turnos extendidos de personal',
+            'Comunicar estado a torre de control'
         ]
     }
     
     return tareas_por_aviso.get(tipo_aviso, [])
+
+
+# =============================================================================
+# CÓDIGO DE PRUEBA (solo se ejecuta directamente)
+# =============================================================================
+
+if __name__ == "__main__":
+    print("=" * 70)
+    print("TEST DEL MÓDULO DE AVISOS MVP1 SNOW")
+    print("=" * 70)
+    
+    # Escenario 1: Temperatura bajo cero
+    print("\n--- ESCENARIO 1: Temperatura bajo cero ---")
+    condiciones_1 = {
+        'temperatura_actual': -2.5,
+        'punto_rocio': -4.0,
+        'humedad': 75,
+        'viento': 15,
+        'pronostico': {'prob_lluvia': 20, 'prob_nieve': 80}
+    }
+    resultado_1 = generar_avisos(condiciones_1)
+    print(f"Avisos generados: {[a['tipo'] for a in resultado_1['avisos_generados']]}")
+    
+    # Escenario 2: Umbral de alerta (TABLA 1)
+    print("\n--- ESCENARIO 2: Umbral de alerta ---")
+    condiciones_2 = {
+        'temperatura_actual': 4.5,
+        'punto_rocio': 2.0,
+        'temperatura_pista': -0.5,
+        'humedad': 65,
+        'viento': 20,
+        'pronostico': {'prob_lluvia': 30, 'prob_nieve': 10}
+    }
+    resultado_2 = generar_avisos(condiciones_2)
+    print(f"Avisos generados: {[a['tipo'] for a in resultado_2['avisos_generados']]}")
+    
+    # Escenario 3: Alerta de nieve (TABLA 3 + nieve)
+    print("\n--- ESCENARIO 3: Alerta de nieve ---")
+    condiciones_3 = {
+        'temperatura_actual': -1.0,
+        'punto_rocio': -1.5,
+        'temperatura_pista': -2.0,
+        'humedad': 70,
+        'viento': 25,
+        'pronostico': {'prob_lluvia': 20, 'prob_nieve': 85}
+    }
+    resultado_3 = generar_avisos(condiciones_3)
+    print(f"Avisos generados: {[a['tipo'] for a in resultado_3['avisos_generados']]}")
+    
+    print("\n" + "=" * 70)
+    print("TEST COMPLETADO")
+    print("=" * 70)
