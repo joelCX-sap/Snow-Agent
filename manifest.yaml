@@ -7,9 +7,9 @@ applications:
     memory: 2048M
     disk_quota: 2048M
     routes:
-      - route: dagent-snow.cfapps.eu01-canary.hana.ondemand.com
+      - route: dagent-snow.***********
     env:
-      ALLOWED_ORIGIN: https://agent-snow-rag-ui.cfapps.eu01-canary.hana.ondemand.com
+      ALLOWED_ORIGIN: https://agent-snow-rag-ui.***********
       APP_ENV: production
       API_KEY: agent-snow-secret-key-2024
 
@@ -20,8 +20,8 @@ applications:
     memory: 512M
     disk_quota: 2048M
     routes:
-      - route: agent-snow-rag-ui.cfapps.eu01-canary.hana.ondemand.com
+      - route: agent-snow-rag-ui.***********
     env:
-      VITE_API_BASE_URL: https://dagent-snow.cfapps.eu01-canary.hana.ondemand.com
-      VITE_APP_HOST: agent-snow-rag-ui.cfapps.eu01-canary.hana.ondemand.com
+      VITE_API_BASE_URL: https://dagent-snow.***********
+      VITE_APP_HOST: agent-snow-rag-ui.***********
       VITE_API_KEY: agent-snow-secret-key-2024
