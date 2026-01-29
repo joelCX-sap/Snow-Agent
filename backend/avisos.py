@@ -63,7 +63,6 @@ VALOR_MAXIMO = 100.0
 
 class TipoAviso(Enum):
     """Enumeración de tipos de aviso con su prioridad (menor = más prioritario)"""
-    AVISO_0 = (0, "Temperatura Bajo Cero - Riesgo Crítico de Hielo")
     AVISO_6 = (1, "Alerta de nieve")
     AVISO_5 = (2, "Alerta de lluvia")
     AVISO_1 = (3, "Umbral de Alerta")
@@ -80,7 +79,6 @@ class TipoAviso(Enum):
 # Estructura: {aviso_activo: [lista de avisos que bloquea]}
 
 REGLAS_EXCLUSION: Dict[TipoAviso, List[TipoAviso]] = {
-    TipoAviso.AVISO_0: [TipoAviso.AVISO_6, TipoAviso.AVISO_5, TipoAviso.AVISO_1],
     TipoAviso.AVISO_6: [TipoAviso.AVISO_5, TipoAviso.AVISO_1],
     TipoAviso.AVISO_5: [TipoAviso.AVISO_1],
     TipoAviso.AVISO_1: [],  # No bloquea ninguno
@@ -91,20 +89,6 @@ REGLAS_EXCLUSION: Dict[TipoAviso, List[TipoAviso]] = {
 # CONFIGURACIÓN DE AVISOS (CÓDIGOS SAP PM)
 # =============================================================================
 AVISOS_CONFIG = {
-    'AVISO_0': {
-        'nombre': 'Temperatura Bajo Cero - Riesgo Crítico de Hielo',
-        'clase': 'CRITICO',
-        'QMART': 'O1',              # Clase de aviso: Operaciones Aeropuerto
-        'QMTXT': 'Temperatura Bajo Cero - Riesgo Crítico de Hielo',
-        'TPLNR': 'RGA-LADAIR',      # Ubicación técnica
-        'SWERK': 'RGA',             # Centro de emplazamiento
-        'INGRP': 'OPE',             # Grupo planificador: Operaciones
-        'GEWRK': 'ADM_AD',          # Puesto de trabajo
-        'PRIOK': '1',               # Prioridad MÁXIMA
-        'QMGRP': 'YB-DERR1',        # Grupo modo de fallo: Operativo Nieve
-        'QMCOD': 'Y116',            # Modo de fallo
-        'nota': 'Aviso crítico cuando la temperatura ambiente está bajo 0°C'
-    },
     'AVISO_1': {
         'nombre': 'Umbral de Alerta',
         'clase': 'ALERTA',
@@ -460,25 +444,6 @@ def evaluar_tabla_3(datos: DatosMeteorologicos) -> ResultadoEvaluacion:
 # FUNCIONES DE EVALUACIÓN DE AVISOS INDIVIDUALES
 # =============================================================================
 
-def evaluar_aviso_0(datos: DatosMeteorologicos) -> Tuple[bool, str]:
-    """
-    AVISO_0: Temperatura Bajo Cero - Riesgo Crítico de Hielo
-    
-    Condición: Temperatura ambiente < 0°C
-    
-    Este es el aviso de MÁXIMA PRIORIDAD y bloquea todos los demás.
-    """
-    cumple = datos.temperatura_ambiente < 0
-    
-    if cumple:
-        razon = f"AVISO_0 ACTIVO: Temperatura ambiente {datos.temperatura_ambiente}°C < 0°C"
-    else:
-        razon = f"AVISO_0 NO APLICA: Temperatura ambiente {datos.temperatura_ambiente}°C ≥ 0°C"
-    
-    logger.info(f"Evaluación AVISO_0: {razon}")
-    return cumple, razon
-
-
 def evaluar_aviso_1(datos: DatosMeteorologicos) -> Tuple[bool, str, ResultadoEvaluacion]:
     """
     AVISO_1: Umbral de Alerta
@@ -655,11 +620,6 @@ def generar_avisos(condiciones_clima: Dict[str, Any]) -> Dict[str, Any]:
     # PASO 2: Evaluar cada aviso
     avisos_candidatos = {}
     
-    # Evaluar AVISO_0
-    cumple_0, razon_0 = evaluar_aviso_0(datos)
-    avisos_candidatos[TipoAviso.AVISO_0] = cumple_0
-    log_decisiones.append(razon_0)
-    
     # Evaluar AVISO_6
     cumple_6, razon_6, _ = evaluar_aviso_6(datos)
     avisos_candidatos[TipoAviso.AVISO_6] = cumple_6
@@ -760,18 +720,6 @@ def obtener_tareas_procedimiento(tipo_aviso: str) -> List[str]:
         Lista de tareas a realizar según el procedimiento operativo
     """
     tareas_por_aviso = {
-        'AVISO_0': [
-            '⚠️ ALERTA CRÍTICA: Temperatura bajo cero detectada',
-            'Activación INMEDIATA del protocolo de emergencia por hielo',
-            'Inspección urgente de todas las superficies pavimentadas',
-            'Aplicación preventiva de descongelantes (urea/glicol)',
-            'Verificar condiciones de pista con MARWIS cada 15 minutos',
-            'Comunicación inmediata con torre de control',
-            'Posicionar equipos de control de hielo en standby',
-            'Evaluar restricción de operaciones si es necesario',
-            'Notificar a todas las áreas operativas',
-            'Documentar todas las acciones tomadas'
-        ],
         'AVISO_1': [
             'Monitorear condiciones meteorológicas cada 2 horas',
             'Verificar temperatura de pista mediante MARWIS',
@@ -810,21 +758,9 @@ if __name__ == "__main__":
     print("TEST DEL MÓDULO DE AVISOS MVP1 SNOW")
     print("=" * 70)
     
-    # Escenario 1: Temperatura bajo cero
-    print("\n--- ESCENARIO 1: Temperatura bajo cero ---")
+    # Escenario 1: Umbral de alerta (TABLA 1)
+    print("\n--- ESCENARIO 1: Umbral de alerta ---")
     condiciones_1 = {
-        'temperatura_actual': -2.5,
-        'punto_rocio': -4.0,
-        'humedad': 75,
-        'viento': 15,
-        'pronostico': {'prob_lluvia': 20, 'prob_nieve': 80}
-    }
-    resultado_1 = generar_avisos(condiciones_1)
-    print(f"Avisos generados: {[a['tipo'] for a in resultado_1['avisos_generados']]}")
-    
-    # Escenario 2: Umbral de alerta (TABLA 1)
-    print("\n--- ESCENARIO 2: Umbral de alerta ---")
-    condiciones_2 = {
         'temperatura_actual': 4.5,
         'punto_rocio': 2.0,
         'temperatura_pista': -0.5,
@@ -832,12 +768,12 @@ if __name__ == "__main__":
         'viento': 20,
         'pronostico': {'prob_lluvia': 30, 'prob_nieve': 10}
     }
-    resultado_2 = generar_avisos(condiciones_2)
-    print(f"Avisos generados: {[a['tipo'] for a in resultado_2['avisos_generados']]}")
+    resultado_1 = generar_avisos(condiciones_1)
+    print(f"Avisos generados: {[a['tipo'] for a in resultado_1['avisos_generados']]}")
     
-    # Escenario 3: Alerta de nieve (TABLA 3 + nieve)
-    print("\n--- ESCENARIO 3: Alerta de nieve ---")
-    condiciones_3 = {
+    # Escenario 2: Alerta de nieve (TABLA 3 + nieve)
+    print("\n--- ESCENARIO 2: Alerta de nieve ---")
+    condiciones_2 = {
         'temperatura_actual': -1.0,
         'punto_rocio': -1.5,
         'temperatura_pista': -2.0,
@@ -845,8 +781,8 @@ if __name__ == "__main__":
         'viento': 25,
         'pronostico': {'prob_lluvia': 20, 'prob_nieve': 85}
     }
-    resultado_3 = generar_avisos(condiciones_3)
-    print(f"Avisos generados: {[a['tipo'] for a in resultado_3['avisos_generados']]}")
+    resultado_2 = generar_avisos(condiciones_2)
+    print(f"Avisos generados: {[a['tipo'] for a in resultado_2['avisos_generados']]}")
     
     print("\n" + "=" * 70)
     print("TEST COMPLETADO")
