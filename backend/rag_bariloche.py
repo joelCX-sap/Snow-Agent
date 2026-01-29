@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration
-EMBEDDING_MODEL_NAME = os.getenv('EMBEDDING_MODEL_NAME', 'text-embedding-3-small')
+EMBEDDING_MODEL_NAME = os.getenv('EMBEDDING_MODEL_NAME', 'text-embedding-3-large')
 TABLE_NAME = "procedimiento_rga"
 
 # SAP AI Hub imports
@@ -212,7 +212,7 @@ class EmbeddingService:
         import re
         from collections import Counter
         
-        embedding = [0.0] * 1536
+        embedding = [0.0] * 3072
         
         # Hash del texto para consistencia
         text_hash = hashlib.sha256(text.encode()).hexdigest()
@@ -224,7 +224,7 @@ class EmbeddingService:
         word_freq = Counter(words)
         
         for i, (word, freq) in enumerate(word_freq.most_common(256)):
-            if i + 256 < 1536:
+            if i + 256 < 3072:
                 embedding[256 + i] = freq / max(len(words), 1)
         
         # Estadísticas del texto
@@ -305,7 +305,7 @@ class HANAVectorDB:
                         CHUNK_TEXT NCLOB,
                         CHUNK_INDEX INTEGER,
                         VECTOR_STR NCLOB,
-                        VECTOR REAL_VECTOR(1536),
+                        VECTOR REAL_VECTOR(3072),
                         CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
