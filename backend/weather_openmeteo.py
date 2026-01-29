@@ -12,6 +12,7 @@ from retry_requests import retry
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 import logging
+import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -154,10 +155,10 @@ class OpenMeteoService:
             
             # Procesar datos horarios
             hourly = response.Hourly()
-            hourly_data = self._procesar_datos_horarios(hourly, response.UtcOffsetSeconds())
+            hourly_data = self._procesar_datos_horarios(hourly, response.UtcOffsetSeconds(), ubicacion["timezone"])
             
             # Obtener forecast para las próximas horas (hora actual + 3 horas)
-            forecast_horas = self._obtener_forecast_proximas_horas(hourly_data, 4)  # hora actual + 3 = 4 horas
+            forecast_horas = self._obtener_forecast_proximas_horas(hourly_data, 4, ubicacion["timezone"])  # hora actual + 3 = 4 horas
             
             # Formatear respuesta compatible con el sistema existente
             clima_formateado = self._formatear_respuesta(
@@ -174,7 +175,7 @@ class OpenMeteoService:
             logger.error(f"Error obteniendo clima de Open-Meteo: {e}")
             return None
     
-    def _procesar_datos_horarios(self, hourly, utc_offset: int) -> pd.DataFrame:
+    def _procesar_datos_horarios(self, hourly, utc_offset: int, timezone_str: str) -> pd.DataFrame:
         """Procesa los datos horarios del response de Open-Meteo"""
         
         hourly_temperature_2m = hourly.Variables(0).ValuesAsNumpy()
@@ -190,13 +191,25 @@ class OpenMeteoService:
         hourly_wind_direction_10m = hourly.Variables(10).ValuesAsNumpy()
         hourly_snow_depth = hourly.Variables(11).ValuesAsNumpy()
         
+        # Crear el date_range en UTC (sin sumar el offset, ya que los timestamps vienen en UTC)
+        # Luego convertir a la zona horaria local
+        dates_utc = pd.date_range(
+            start=pd.to_datetime(hourly.Time(), unit="s", utc=True),
+            end=pd.to_datetime(hourly.TimeEnd(), unit="s", utc=True),
+            freq=pd.Timedelta(seconds=hourly.Interval()),
+            inclusive="left"
+        )
+        
+        # Convertir a la zona horaria local
+        try:
+            tz = pytz.timezone(timezone_str)
+            dates_local = dates_utc.tz_convert(tz)
+        except Exception as e:
+            logger.warning(f"Error convirtiendo timezone {timezone_str}: {e}. Usando UTC.")
+            dates_local = dates_utc
+        
         hourly_data = {
-            "date": pd.date_range(
-                start=pd.to_datetime(hourly.Time() + utc_offset, unit="s", utc=True),
-                end=pd.to_datetime(hourly.TimeEnd() + utc_offset, unit="s", utc=True),
-                freq=pd.Timedelta(seconds=hourly.Interval()),
-                inclusive="left"
-            ),
+            "date": dates_local,
             "temperature_2m": hourly_temperature_2m,
             "relative_humidity_2m": hourly_relative_humidity_2m,
             "precipitation": hourly_precipitation,
@@ -213,20 +226,32 @@ class OpenMeteoService:
         
         return pd.DataFrame(data=hourly_data)
     
-    def _obtener_forecast_proximas_horas(self, hourly_df: pd.DataFrame, num_horas: int = 4) -> List[Dict[str, Any]]:
+    def _obtener_forecast_proximas_horas(self, hourly_df: pd.DataFrame, num_horas: int = 4, timezone_str: str = "UTC") -> List[Dict[str, Any]]:
         """
         Obtiene el forecast para las próximas N horas.
-        Por ejemplo: si son las 14:30, retorna forecast de 14:00, 15:00, 16:00, 17:00
+        Por ejemplo: si son las 18:30, retorna forecast de 18:00, 19:00, 20:00, 21:00
         
         Args:
-            hourly_df: DataFrame con datos horarios
+            hourly_df: DataFrame con datos horarios (ya en timezone local)
             num_horas: Número de horas a incluir (hora actual + 3 = 4)
+            timezone_str: Zona horaria de la ubicación
         
         Returns:
             Lista de diccionarios con el forecast por hora
         """
-        now = datetime.now()
-        current_hour = now.replace(minute=0, second=0, microsecond=0)
+        # Obtener la hora actual en la zona horaria de la ubicación
+        try:
+            tz = pytz.timezone(timezone_str)
+            now_local = datetime.now(tz)
+        except Exception as e:
+            logger.warning(f"Error con timezone {timezone_str}: {e}. Usando hora local del sistema.")
+            now_local = datetime.now()
+        
+        # Redondear a la hora actual (sin minutos)
+        current_hour = now_local.replace(minute=0, second=0, microsecond=0)
+        
+        logger.info(f"Hora actual en {timezone_str}: {now_local.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        logger.info(f"Buscando forecast desde: {current_hour.strftime('%Y-%m-%d %H:%M')}")
         
         forecast_horas = []
         
@@ -234,9 +259,21 @@ class OpenMeteoService:
             target_hour = current_hour + timedelta(hours=i)
             
             # Buscar en el DataFrame la hora correspondiente
+            # El DataFrame ya tiene las fechas convertidas a la zona horaria local
             for idx, row in hourly_df.iterrows():
-                row_hour = row['date'].replace(tzinfo=None)
-                if row_hour.hour == target_hour.hour and row_hour.date() == target_hour.date():
+                row_date = row['date']
+                
+                # Convertir ambas fechas a timestamps para comparación más precisa
+                # Esto evita problemas con la comparación de timezones
+                row_ts = pd.Timestamp(row_date)
+                target_ts = pd.Timestamp(target_hour)
+                
+                # Comparar año, mes, día y hora
+                if (row_ts.year == target_ts.year and 
+                    row_ts.month == target_ts.month and 
+                    row_ts.day == target_ts.day and 
+                    row_ts.hour == target_ts.hour):
+                    
                     forecast_horas.append({
                         "hora": target_hour.strftime("%H:%M"),
                         "fecha": target_hour.strftime("%Y-%m-%d"),
@@ -251,8 +288,10 @@ class OpenMeteoService:
                         "wind_direction_10m": int(row['wind_direction_10m']),
                         "snow_depth": round(float(row['snow_depth']), 2) if pd.notna(row['snow_depth']) else 0
                     })
+                    logger.debug(f"Encontrado forecast para {target_hour.strftime('%H:%M')}: {row['temperature_2m']:.1f}°C")
                     break
         
+        logger.info(f"Forecast encontrado para {len(forecast_horas)} horas")
         return forecast_horas
     
     def _formatear_respuesta(

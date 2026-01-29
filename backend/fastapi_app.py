@@ -11,7 +11,7 @@ import logging
 import json
 import csv
 from datetime import datetime, date
-from rag_bariloche import RAGService, DocumentProcessor
+from rag_rga import RAGService, DocumentProcessor
 from weather_openmeteo import obtener_clima, validar_fecha
 from workflow_trigger import trigger_workflow
 from marwis import run_marwis
