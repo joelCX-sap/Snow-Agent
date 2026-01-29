@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 EMBEDDING_MODEL_NAME = os.getenv('EMBEDDING_MODEL_NAME', 'text-embedding-3-small')
-TABLE_NAME = "procedimientos_Bariloche"
+TABLE_NAME = "procedimiento_rga"
 
 # SAP AI Hub imports
 EMBEDDINGS_AVAILABLE = False
