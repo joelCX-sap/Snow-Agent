@@ -520,6 +520,102 @@ async function descargarAvisoJSON() {
 }
 
 /**
+ * Envía el aviso a SAP Integration Suite
+ */
+async function enviarAvisoISuite() {
+  if (!avisosData) {
+    mostrarMensajeISuite("No hay aviso para enviar", "Negative");
+    return;
+  }
+  
+  const enviarBtn = document.getElementById("enviarISuiteBtn");
+  const mensajeStrip = document.getElementById("isuiteMensaje");
+  const respuestaContainer = document.getElementById("isuiteRespuestaContainer");
+  const respuestaTexto = document.getElementById("isuiteRespuestaTexto");
+  
+  if (!enviarBtn) return;
+  
+  try {
+    // Deshabilitar botón y mostrar loading
+    enviarBtn.disabled = true;
+    enviarBtn.setAttribute("loading", "");
+    mostrarMensajeISuite("Enviando aviso a SAP Integration Suite...", "Information");
+    
+    // Ocultar respuesta anterior
+    if (respuestaContainer) {
+      respuestaContainer.style.display = "none";
+    }
+    
+    console.log("📤 Enviando aviso a SAP Integration Suite:", avisosData);
+    
+    // Llamar al endpoint
+    const resultado = await apiService.enviarAvisoISuite(avisosData);
+    
+    console.log("📥 Respuesta de SAP Integration Suite:", resultado);
+    
+    if (resultado.success) {
+      // Éxito
+      mostrarMensajeISuite(
+        `✅ ${resultado.message || "Aviso enviado exitosamente"} (HTTP ${resultado.status_code || 200})`,
+        "Positive"
+      );
+      
+      // Mostrar respuesta si existe
+      if (respuestaContainer && respuestaTexto && resultado.response_body) {
+        respuestaContainer.style.display = "block";
+        respuestaTexto.textContent = typeof resultado.response_body === "object" 
+          ? JSON.stringify(resultado.response_body, null, 2) 
+          : String(resultado.response_body);
+      }
+    } else {
+      // Error
+      const errorMsg = resultado.message || "Error desconocido al enviar el aviso";
+      const statusCode = resultado.status_code ? ` (HTTP ${resultado.status_code})` : "";
+      mostrarMensajeISuite(`❌ ${errorMsg}${statusCode}`, "Negative");
+      
+      // Mostrar detalles del error si existen
+      if (respuestaContainer && respuestaTexto && resultado.response_body) {
+        respuestaContainer.style.display = "block";
+        respuestaTexto.textContent = typeof resultado.response_body === "object" 
+          ? JSON.stringify(resultado.response_body, null, 2) 
+          : String(resultado.response_body);
+      }
+    }
+    
+  } catch (error) {
+    console.error("Error enviando a SAP Integration Suite:", error);
+    mostrarMensajeISuite(`❌ Error de conexión: ${error.message}`, "Negative");
+  } finally {
+    // Rehabilitar botón
+    if (enviarBtn) {
+      enviarBtn.disabled = false;
+      enviarBtn.removeAttribute("loading");
+    }
+  }
+}
+
+/**
+ * Muestra un mensaje en el MessageStrip de SAP Integration Suite
+ */
+function mostrarMensajeISuite(mensaje, design = "Information") {
+  const mensajeStrip = document.getElementById("isuiteMensaje");
+  if (!mensajeStrip) return;
+  
+  mensajeStrip.textContent = mensaje;
+  mensajeStrip.design = design;
+  mensajeStrip.style.display = "block";
+  
+  // Auto-ocultar mensajes de éxito después de 10 segundos
+  if (design === "Positive") {
+    setTimeout(() => {
+      if (mensajeStrip.design === "Positive") {
+        mensajeStrip.style.display = "none";
+      }
+    }, 10000);
+  }
+}
+
+/**
  * Renderiza el forecast de las próximas horas (hora actual + 3 horas)
  * @param {Array} forecastHoras - Array de objetos con datos por hora
  */
@@ -664,6 +760,18 @@ export default function init() {
     });
   } else {
     console.error("❌ Botón de descarga JSON (nuevo) NO encontrado");
+  }
+  
+  // Botón de envío a SAP Integration Suite
+  const enviarISuiteBtn = document.getElementById("enviarISuiteBtn");
+  if (enviarISuiteBtn) {
+    console.log("✅ Botón de envío a SAP Integration Suite encontrado");
+    enviarISuiteBtn.addEventListener("click", () => {
+      console.log("📤 Click en enviar a SAP Integration Suite detectado");
+      enviarAvisoISuite();
+    });
+  } else {
+    console.warn("⚠️ Botón de envío a SAP Integration Suite NO encontrado");
   }
 
   const consultar = async () => {

@@ -112,10 +112,24 @@
         <div id="tareasTexto" style="margin-bottom: 1.5rem; padding: 1rem; background-color: var(--sapGroup_ContentBackground); border-radius: 0.25rem; font-family: monospace; font-size: 0.875rem; white-space: pre-wrap;">
         </div>
         
-        <!-- Botón de descarga -->
-        <ui5-button id="descargarAvisoJsonBtn" design="Emphasized" icon="download">
-          Descargar Aviso Completo (JSON)
-        </ui5-button>
+        <!-- Botones de acción -->
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem;">
+          <ui5-button id="descargarAvisoJsonBtn" design="Default" icon="download">
+            Descargar Aviso (JSON)
+          </ui5-button>
+          <ui5-button id="enviarISuiteBtn" design="Emphasized" icon="paper-plane">
+            Enviar a SAP Integration Suite
+          </ui5-button>
+        </div>
+        
+        <!-- Mensaje de estado del envío a SAP Integration Suite -->
+        <ui5-message-strip id="isuiteMensaje" hide-close-button style="display: none; margin-top: 1rem;"></ui5-message-strip>
+        
+        <!-- Detalles de la respuesta de SAP Integration Suite -->
+        <div id="isuiteRespuestaContainer" style="display: none; margin-top: 1rem; padding: 1rem; background-color: var(--sapGroup_ContentBackground); border: 1px solid var(--sapGroup_BorderColor); border-radius: 0.375rem;">
+          <ui5-title level="H5" style="margin-bottom: 0.5rem;">Respuesta de SAP Integration Suite</ui5-title>
+          <div id="isuiteRespuestaTexto" style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; max-height: 200px; overflow-y: auto;"></div>
+        </div>
       </div>
     </section>
   </ui5-card>

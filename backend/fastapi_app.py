@@ -17,6 +17,7 @@ from workflow_trigger import trigger_workflow
 from marwis import run_marwis
 from avisos import generar_avisos, obtener_tareas_procedimiento
 from simulacion import generar_datos_simulados, obtener_escenarios_disponibles
+from isuite import enviar_aviso_a_isuite, verificar_configuracion as verificar_config_isuite, obtener_estado_token
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -728,6 +729,96 @@ async def obtener_simulacion(escenario: str):
             "success": False,
             "message": f"Error: {str(e)}"
         }
+
+# ==================== SAP INTEGRATION SUITE ====================
+
+class EnviarAvisoISuiteRequest(BaseModel):
+    """Request para enviar aviso a SAP Integration Suite"""
+    aviso: Dict[str, Any] = Field(..., description="JSON del aviso ya generado por el sistema")
+
+class EnviarAvisoISuiteResponse(BaseModel):
+    """Response del envío a SAP Integration Suite"""
+    success: bool
+    status_code: Optional[int] = None
+    response_body: Optional[Any] = None
+    message: str
+    timestamp: str
+
+class ISuiteStatusResponse(BaseModel):
+    """Response del estado de configuración de SAP Integration Suite"""
+    success: bool
+    configuracion: Optional[Dict[str, Any]] = None
+    token_status: Optional[Dict[str, Any]] = None
+    message: str
+
+@app.post("/enviar-aviso-isuite", response_model=EnviarAvisoISuiteResponse)
+async def enviar_aviso_isuite_endpoint(request: EnviarAvisoISuiteRequest):
+    """
+    Envía un aviso ya generado a SAP Integration Suite.
+    
+    Este endpoint recibe el aviso completo generado por el sistema y lo envía
+    al iFlow HTTP de SAP Integration Suite usando OAuth2 Client Credentials.
+    
+    El aviso debe tener la estructura retornada por /generar-avisos.
+    """
+    try:
+        logger.info("Recibida solicitud para enviar aviso a SAP Integration Suite")
+        
+        # Validar que el aviso no esté vacío
+        if not request.aviso:
+            return EnviarAvisoISuiteResponse(
+                success=False,
+                message="El aviso está vacío",
+                timestamp=datetime.now().isoformat()
+            )
+        
+        # Llamar al módulo isuite.py
+        resultado = enviar_aviso_a_isuite(request.aviso)
+        
+        return EnviarAvisoISuiteResponse(
+            success=resultado.get('success', False),
+            status_code=resultado.get('status_code'),
+            response_body=resultado.get('response_body'),
+            message=resultado.get('message', ''),
+            timestamp=resultado.get('timestamp', datetime.now().isoformat())
+        )
+        
+    except Exception as e:
+        logger.error(f"Error enviando aviso a SAP Integration Suite: {e}")
+        return EnviarAvisoISuiteResponse(
+            success=False,
+            message=f"Error interno: {str(e)}",
+            timestamp=datetime.now().isoformat()
+        )
+
+@app.get("/isuite/status", response_model=ISuiteStatusResponse)
+async def isuite_status():
+    """
+    Verifica el estado de la configuración de SAP Integration Suite.
+    
+    Útil para diagnóstico y verificar que las variables de entorno
+    estén correctamente configuradas antes de intentar enviar avisos.
+    """
+    try:
+        # Verificar configuración
+        config_status = verificar_config_isuite()
+        
+        # Obtener estado del token
+        token_status = obtener_estado_token()
+        
+        return ISuiteStatusResponse(
+            success=config_status.get('configuracion_valida', False),
+            configuracion=config_status,
+            token_status=token_status,
+            message=config_status.get('mensaje', '')
+        )
+        
+    except Exception as e:
+        logger.error(f"Error verificando estado de SAP Integration Suite: {e}")
+        return ISuiteStatusResponse(
+            success=False,
+            message=f"Error: {str(e)}"
+        )
 
 # ==================== STATION DATA (MARWIS) ====================
 

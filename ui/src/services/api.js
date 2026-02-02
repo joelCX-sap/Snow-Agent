@@ -202,6 +202,17 @@ export const apiService = {
   async getSimulacion(escenario) {
     // GET /simulacion/{escenario}
     return request(`/simulacion/${escenario}`);
+  },
+
+  // SAP Integration Suite
+  async enviarAvisoISuite(aviso) {
+    // POST /enviar-aviso-isuite { aviso }
+    return request("/enviar-aviso-isuite", "POST", { aviso });
+  },
+
+  async getISuiteStatus() {
+    // GET /isuite/status
+    return request("/isuite/status");
   }
 };
 
